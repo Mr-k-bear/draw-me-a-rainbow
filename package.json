@@ -1,0 +1,27 @@
+{
+  "name": "draw_me_a_rainbow",
+  "version": "1.0.0",
+  "description": "Draw me a rainbow!",
+  "main": "index.js",
+  "scripts": {
+    "build": "rollup --config './config/rollup.build.js'",
+    "dev": "rollup --watch --config './config/rollup.dev.js'"
+  },
+  "author": "MrKBear",
+  "license": "MIT",
+  "devDependencies": {
+    "@rollup/plugin-node-resolve": "^13.0.5",
+    "rollup": "^2.58.0",
+    "rollup-plugin-dts": "^4.0.0",
+    "rollup-plugin-polyfill-node": "^0.7.0",
+    "rollup-plugin-terser": "^7.0.2",
+    "rollup-plugin-typescript2": "^0.30.0",
+    "tslib": "^2.3.1",
+    "typescript": "^4.4.3"
+  },
+  "dependencies": {
+    "@juggle/resize-observer": "^3.3.1",
+    "gl-matrix": "^3.3.0",
+    "stats.js": "^0.17.0"
+  }
+}

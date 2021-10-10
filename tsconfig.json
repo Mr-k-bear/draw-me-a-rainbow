@@ -1,0 +1,15 @@
+{
+    "compilerOptions": {
+        "target": "ESNext",
+        "module": "ESNext",
+        "moduleResolution": "node",
+        "sourceMap": true
+    },
+
+    "typeAcquisition": {
+        "include": ["./build/Rainbow.d.ts"]
+    },
+
+    "include": ["./source/**/*", "./test/*"],
+    "exclude": ["./node_modules", "./build"]
+}
