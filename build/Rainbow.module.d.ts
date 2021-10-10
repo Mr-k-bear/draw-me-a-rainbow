@@ -436,6 +436,28 @@ declare class BasicsShader extends GLProgram {
     color(rgb: number[] | vec3): void;
 }
 
+/**
+ * 基础绘制 Shader
+ * @class BasicsShader
+ */
+declare class FlutterShader extends GLProgram {
+    onload(): void;
+    /**
+     * 坐标
+     */
+    pos(r: number[] | vec3): this;
+    /**
+     * 传递半径数据
+     */
+    mvp(mat: mat4, transpose?: boolean): this;
+    /**
+     * 传递半径数据
+     * @param {vec3|Number[]} rgb
+     */
+    color(rgb: number[] | vec3): void;
+    t(t: number): void;
+}
+
 declare class TestAxis implements Object3D {
     /**
      * 坐标轴数据
@@ -509,6 +531,14 @@ declare class Planet implements Object3D {
      */
     pos: [number, number, number];
     /**
+     * 指定长度的区间内生成固定点
+     * 固定距离随机摆动
+     * @param len
+     * @param num
+     * @param pow
+     */
+    private genRandomPointM;
+    /**
      * 生成网格
      * @param r 半径
      * @param p 半径浮动
@@ -517,8 +547,49 @@ declare class Planet implements Object3D {
      * @param e 精度
      */
     genBuffer(r: number, p: number, f: number, o?: number, e?: number): number[];
+    private time;
     color: number[];
-    draw(camera: Camera, shader: BasicsShader): void;
+    update(t: number): void;
+    draw(camera: Camera, shader: FlutterShader): void;
+}
+
+declare class Start implements Object3D {
+    /**
+     * GL 上下文
+     */
+    protected gl: GLContex;
+    private vertexBuffer;
+    private pointNum;
+    static readonly NORMAL_COLOR: number[][];
+    /**
+     * 加载
+     */
+    constructor(gl: GLContex);
+    /**
+     * 坐标
+     */
+    pos: [number, number, number];
+    /**
+     * 指定长度的区间内生成固定点
+     * 固定距离摆动
+     * @param len
+     * @param num
+     * @param pow
+     * @param r
+     */
+    private genRandomPointD;
+    /**
+     * 生成网格
+     * @param r 半径
+     * @param p 半径浮动
+     * @param o 平滑程度
+     * @param e 精度
+     */
+    genBuffer(r: number, p: number, o?: number, e?: number): number[];
+    private time;
+    color: number[];
+    update(t: number): void;
+    draw(camera: Camera, shader: FlutterShader): void;
 }
 
 /**
@@ -560,22 +631,6 @@ declare class SmoothTool {
      */
     static genSmoothLine(val: number[][], w?: boolean, smooth?: number, f?: number): number[];
     /**
-     * 指定长度的区间内生成固定点
-     * 随机距离随机摆动
-     * @param len 覆盖程度
-     * @param num 点数量
-     * @param pow 摆动幅度
-     */
-    static genRandomPointR(len: number, num: number, pow: number): number[][];
-    /**
-     * 指定长度的区间内生成固定点
-     * 固定距离随机摆动
-     * @param len
-     * @param num
-     * @param pow
-     */
-    static genRandomPointM(len: number, num: number, pow: number): number[][];
-    /**
      * 随机生成数字
      * @param min 最小值
      * @param max 最大值
@@ -583,4 +638,4 @@ declare class SmoothTool {
     static random(min: number, max: number): number;
 }
 
-export { BasicsShader, Bezier3, Camera, Clock, GLCanvas, GLCanvasOption, GLContex, GLProgram, GLRenderer, LoopFunction, Object3D, Planet, SmoothTool, TestAxis, TestBox };
+export { BasicsShader, Bezier3, Camera, Clock, FlutterShader, GLCanvas, GLCanvasOption, GLContex, GLProgram, GLRenderer, LoopFunction, Object3D, Planet, SmoothTool, Start, TestAxis, TestBox };

@@ -2542,6 +2542,86 @@ class BasicsShader extends GLProgram {
     }
 }
 
+/**
+ * 基础绘制 Shader
+ * @class BasicsShader
+ */
+class FlutterShader extends GLProgram {
+    onload() {
+        // 顶点着色
+        const vertex = `
+        attribute vec3 vPos;
+        
+        uniform vec3 r;
+        uniform mat4 mvp;
+        uniform vec3 pos;
+        uniform float t;
+
+        vec2 random2(vec2 st){
+            st = vec2( dot(st,vec2(127.1,311.7)),
+                      dot(st,vec2(269.5,183.3)) );
+            return -1.0 + 2.0*fract(sin(st)*43758.5453123);
+        }
+        
+        float noise(vec2 st) {
+            vec2 i = floor(st);
+            vec2 f = fract(st);
+        
+            vec2 u = f*f*(3.0-2.0*f);
+        
+            return mix( mix( dot( random2(i + vec2(0.0,0.0) ), f - vec2(0.0,0.0) ),
+                             dot( random2(i + vec2(1.0,0.0) ), f - vec2(1.0,0.0) ), u.x),
+                        mix( dot( random2(i + vec2(0.0,1.0) ), f - vec2(0.0,1.0) ),
+                             dot( random2(i + vec2(1.0,1.0) ), f - vec2(1.0,1.0) ), u.x), u.y);
+        }
+
+        void main(){
+            vec3 sp = vPos + pos;
+            sp.xy += noise(vPos.xy + t / 8.) / 10.;
+            gl_Position = mvp * vec4(sp, 1.);
+        }
+        `;
+        // 片段着色
+        const fragment = `
+        precision lowp float;
+        
+        uniform vec3 color;
+
+        void main(){
+            gl_FragColor = vec4(color, 1.);
+        }
+        `;
+        // 保存代码
+        this.setSource(vertex, fragment);
+        // 编译
+        this.compile();
+    }
+    /**
+     * 坐标
+     */
+    pos(r) {
+        this.gl.uniform3fv(this.uniformLocate("pos"), r);
+        return this;
+    }
+    /**
+     * 传递半径数据
+     */
+    mvp(mat, transpose = false) {
+        this.gl.uniformMatrix4fv(this.uniformLocate("mvp"), transpose, mat);
+        return this;
+    }
+    /**
+     * 传递半径数据
+     * @param {vec3|Number[]} rgb
+     */
+    color(rgb) {
+        this.gl.uniform3fv(this.uniformLocate("color"), rgb);
+    }
+    t(t) {
+        this.gl.uniform1f(this.uniformLocate("t"), t);
+    }
+}
+
 class TestAxis {
     /**
      * 坐标轴数据
@@ -2743,8 +2823,8 @@ class SmoothTool {
         for (let i = 0; i < val.length - 1; i++) {
             bz.pointA = val[i];
             bz.pointB = val[i + 1];
-            bz.handA = [bz.pointA[0] + smooth, bz.pointA[1]];
-            bz.handB = [bz.pointB[0] - smooth, bz.pointB[1]];
+            bz.handA = [bz.pointA[0] + (bz.pointA[3] ?? smooth), bz.pointA[1]];
+            bz.handB = [bz.pointB[0] - (bz.pointB[2] ?? smooth), bz.pointB[1]];
             bz.len = 2;
             // console.log(bz);
             // 计算插值次数
@@ -2756,49 +2836,6 @@ class SmoothTool {
         }
         if (w)
             res.push(val[val.length - 1][1]);
-        return res;
-    }
-    /**
-     * 指定长度的区间内生成固定点
-     * 随机距离随机摆动
-     * @param len 覆盖程度
-     * @param num 点数量
-     * @param pow 摆动幅度
-     */
-    static genRandomPointR(len, num, pow) {
-        let res = [];
-        for (let i = 0; i < num; i++) {
-            res.push([
-                Math.random(),
-                (Math.random() - .5) * 2 * pow
-            ]);
-        }
-        // 排序
-        res = res.sort((a, b) => a[0] - b[0]);
-        let min = res[0][0];
-        let max = res[res.length - 1][0];
-        let range = max - min;
-        // 最小归一化
-        for (let i = 0; i < res.length; i++) {
-            res[i][0] = Math.floor((res[i][0] - min) * len / range);
-        }
-        return res;
-    }
-    /**
-     * 指定长度的区间内生成固定点
-     * 固定距离随机摆动
-     * @param len
-     * @param num
-     * @param pow
-     */
-    static genRandomPointM(len, num, pow) {
-        let res = [];
-        for (let i = 0; i < num; i++) {
-            res.push([
-                Math.floor(i * len / (num - 1)),
-                (Math.random() - .5) * 2 * pow
-            ]);
-        }
         return res;
     }
     /**
@@ -2833,7 +2870,7 @@ class Planet {
         ];
         // 生成多边形数据
         let randSeed = Math.random();
-        let d = this.genBuffer(.35 + randSeed * .3, .03 + randSeed * .03 + Math.random() * .01, Math.floor(SmoothTool.random(5, 9)), .8 + randSeed * .3 + Math.random() * .1);
+        let d = this.genBuffer(.20 + randSeed * .4, .03 + randSeed * .03 + Math.random() * .01, Math.floor(SmoothTool.random(5, 9)), .8 + randSeed * .3 + Math.random() * .1);
         this.vertexBuffer = this.gl.createBuffer();
         this.pointNum = d.length / 3;
         this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.vertexBuffer);
@@ -2844,6 +2881,23 @@ class Planet {
      */
     pos = [0, 0, 0];
     /**
+     * 指定长度的区间内生成固定点
+     * 固定距离随机摆动
+     * @param len
+     * @param num
+     * @param pow
+     */
+    genRandomPointM(len, num, pow) {
+        let res = [];
+        for (let i = 0; i < num; i++) {
+            res.push([
+                Math.floor(i * len / (num - 1)),
+                (Math.random() - .5) * 2 * pow
+            ]);
+        }
+        return res;
+    }
+    /**
      * 生成网格
      * @param r 半径
      * @param p 半径浮动
@@ -2851,13 +2905,13 @@ class Planet {
      * @param o 平滑程度
      * @param e 精度
      */
-    genBuffer(r, p, f, o = 1, e = Math.PI / 180) {
+    genBuffer(r, p, f, o = 1, e = Math.PI / 45) {
         const dir = [0, 0];
         const res = [0, 0, 0];
         // 点个数
         let num = Math.PI * 2 / e;
         // 生成抖动数据
-        let d = SmoothTool.genRandomPointM(num, f, p);
+        let d = this.genRandomPointM(num, f, p);
         // 闭合数据
         d[d.length - 1][1] = d[0][1];
         // 插值
@@ -2878,7 +2932,11 @@ class Planet {
         res.push(res[5]);
         return res;
     }
+    time = SmoothTool.random(0, 10);
     color;
+    update(t) {
+        this.time += t ?? 0;
+    }
     draw(camera, shader) {
         // 使用程序
         shader.use();
@@ -2888,14 +2946,129 @@ class Planet {
         this.gl.vertexAttribPointer(shader.attribLocate("vPos"), 3, this.gl.FLOAT, false, 0, 0);
         // mvp参数传递
         shader.mvp(camera.transformMat);
+        // 时间
+        shader.t(this.time);
         // 半径传递
         shader.color(this.color);
-        shader.r([1, 1, 1]);
-        shader.pos([0, 0, 0]);
+        shader.pos(this.pos);
         // 开始绘制
         this.gl.drawArrays(this.gl.TRIANGLE_FAN, 0, this.pointNum);
     }
 }
 
-export { BasicsShader, Bezier3, Camera, Clock, GLCanvas, GLProgram, GLRenderer, Planet, SmoothTool, TestAxis, TestBox };
+class Start {
+    /**
+     * GL 上下文
+     */
+    gl;
+    vertexBuffer;
+    pointNum;
+    static NORMAL_COLOR = [
+        [253 / 255, 255 / 255, 252 / 255],
+        [255 / 255, 244 / 255, 187 / 255],
+        [255 / 255, 204 / 255, 167 / 255]
+    ];
+    /**
+     * 加载
+     */
+    constructor(gl) {
+        this.gl = gl;
+        // 随机颜色
+        let colorDep = SmoothTool.random(0.98, 1.02);
+        let colorRind = Math.floor(SmoothTool.random(0, Start.NORMAL_COLOR.length));
+        this.color = [
+            colorDep * Start.NORMAL_COLOR[colorRind][0],
+            colorDep * Start.NORMAL_COLOR[colorRind][1],
+            colorDep * Start.NORMAL_COLOR[colorRind][2]
+        ];
+        // 生成多边形数据
+        let randSeed = Math.random();
+        let d = this.genBuffer(.05 + randSeed * .02, .01 + randSeed * .01 + Math.random() * .01, .01 + randSeed * .01 + Math.random() * .01);
+        this.vertexBuffer = this.gl.createBuffer();
+        this.pointNum = d.length / 3;
+        this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.vertexBuffer);
+        this.gl.bufferData(this.gl.ARRAY_BUFFER, new Float32Array(d), this.gl.STATIC_DRAW);
+    }
+    /**
+     * 坐标
+     */
+    pos = [0, 0, 0];
+    /**
+     * 指定长度的区间内生成固定点
+     * 固定距离摆动
+     * @param len
+     * @param num
+     * @param pow
+     * @param r
+     */
+    genRandomPointD(len, num, pow, r) {
+        let res = [];
+        for (let i = 0; i < num; i++) {
+            res.push([
+                Math.floor(i * len / (num - 1)),
+                (i % 2 ? 1 : -1) * pow +
+                    (i % 2 ? 1 : 0) * (Math.random() - .5) * 2 * r,
+            ]);
+        }
+        return res;
+    }
+    /**
+     * 生成网格
+     * @param r 半径
+     * @param p 半径浮动
+     * @param o 平滑程度
+     * @param e 精度
+     */
+    genBuffer(r, p, o = 1, e = Math.PI / 45) {
+        const dir = [0, 0];
+        const res = [0, 0, 0];
+        // 点个数
+        let num = Math.PI * 2 / e;
+        // 生成抖动数据
+        let d = this.genRandomPointD(num, 11, r / 3, p);
+        // 闭合数据
+        d[d.length - 1][1] = d[0][1];
+        // 插值
+        let m = SmoothTool.genSmoothLine(d, false, o);
+        for (let i = 0; i < m.length; i++) {
+            // 当前角度
+            let th = i * 2 * Math.PI / m.length;
+            // 参数方程求解
+            dir[0] = Math.cos(th);
+            dir[1] = Math.sin(th);
+            res.push(dir[0] * (r + m[i]));
+            res.push(dir[1] * (r + m[i]));
+            res.push(0);
+        }
+        // 连接起始点
+        res.push(res[3]);
+        res.push(res[4]);
+        res.push(res[5]);
+        return res;
+    }
+    time = SmoothTool.random(0, 10);
+    color;
+    update(t) {
+        this.time += t ?? 0;
+    }
+    draw(camera, shader) {
+        // 使用程序
+        shader.use();
+        // 绑定缓冲区
+        this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.vertexBuffer);
+        // 指定指针数据
+        this.gl.vertexAttribPointer(shader.attribLocate("vPos"), 3, this.gl.FLOAT, false, 0, 0);
+        // mvp参数传递
+        shader.mvp(camera.transformMat);
+        // 时间
+        shader.t(this.time);
+        // 半径传递
+        shader.color(this.color);
+        shader.pos(this.pos);
+        // 开始绘制
+        this.gl.drawArrays(this.gl.TRIANGLE_FAN, 0, this.pointNum);
+    }
+}
+
+export { BasicsShader, Bezier3, Camera, Clock, FlutterShader, GLCanvas, GLProgram, GLRenderer, Planet, SmoothTool, Start, TestAxis, TestBox };
 //# sourceMappingURL=Rainbow.module.js.map

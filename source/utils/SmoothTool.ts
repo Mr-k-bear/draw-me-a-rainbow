@@ -100,8 +100,8 @@ class SmoothTool {
             bz.pointA = val[i];
             bz.pointB = val[i + 1];
             
-            bz.handA = [bz.pointA[0] + smooth, bz.pointA[1]];
-            bz.handB = [bz.pointB[0] - smooth, bz.pointB[1]];
+            bz.handA = [bz.pointA[0] + (bz.pointA[3] ?? smooth), bz.pointA[1]];
+            bz.handB = [bz.pointB[0] - (bz.pointB[2] ?? smooth), bz.pointB[1]];
 
             bz.len = 2;
 
@@ -123,60 +123,6 @@ class SmoothTool {
 
         return res;
 
-    }
-
-    /**
-     * 指定长度的区间内生成固定点
-     * 随机距离随机摆动
-     * @param len 覆盖程度
-     * @param num 点数量
-     * @param pow 摆动幅度
-     */
-    static genRandomPointR(len:number,num:number,pow:number):number[][] {
-        
-        let res = [];
-
-        for (let i = 0; i < num; i++) {
-            res.push([
-                Math.random(),
-                (Math.random() - .5) * 2 * pow
-            ]);
-        }
-
-        // 排序
-        res = res.sort((a, b) => a[0] - b[0]);
-
-        let min = res[0][0];
-        let max = res[res.length - 1][0];
-        let range = max - min;
-
-        // 最小归一化
-        for (let i = 0; i < res.length; i++) {
-            res[i][0] = Math.floor((res[i][0] - min) * len / range);
-        }
-
-        return res;
-    }
-
-    /**
-     * 指定长度的区间内生成固定点
-     * 固定距离随机摆动
-     * @param len 
-     * @param num 
-     * @param pow 
-     */
-    static genRandomPointM(len:number,num:number,pow:number):number[][] {
-
-        let res = [];
-
-        for (let i = 0; i < num; i++) {
-            res.push([
-                Math.floor(i * len / (num - 1)),
-                (Math.random() - .5) * 2 * pow
-            ]);
-        }
-
-        return res;
     }
 
     /**

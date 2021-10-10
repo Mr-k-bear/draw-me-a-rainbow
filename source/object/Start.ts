@@ -4,9 +4,9 @@ import { GLContex } from "../core/GLType";
 import { SmoothTool } from "../utils/SmoothTool";
 import { FlutterShader } from "../shader/FlutterShader";
 
-export { Planet }
+export { Start }
 
-class Planet implements Object3D {
+class Start implements Object3D {
 
     /**
      * GL 上下文
@@ -16,34 +16,35 @@ class Planet implements Object3D {
     private vertexBuffer:WebGLBuffer;
     private pointNum:number;
 
-
-    static readonly NORMAL_COLOR:number[] = 
-    [111 / 255, 149 / 255, 191 / 255];
+    static readonly NORMAL_COLOR:number[][] = [
+        [253 / 255, 255 / 255, 252 / 255],
+        [255 / 255, 244 / 255, 187 / 255],
+        [255 / 255, 204 / 255, 167 / 255]
+    ];
 
     /**
      * 加载
      */
     public constructor(gl:GLContex){
+
         this.gl = gl;
 
         // 随机颜色
         let colorDep = SmoothTool.random(0.98, 1.02);
+        let colorRind = Math.floor(SmoothTool.random(0, Start.NORMAL_COLOR.length));
         this.color = [
-            colorDep * Planet.NORMAL_COLOR[0],
-            colorDep * Planet.NORMAL_COLOR[1],
-            colorDep * Planet.NORMAL_COLOR[2]
+            colorDep * Start.NORMAL_COLOR[colorRind][0],
+            colorDep * Start.NORMAL_COLOR[colorRind][1],
+            colorDep * Start.NORMAL_COLOR[colorRind][2]
         ];
 
         // 生成多边形数据
         let randSeed = Math.random();
         let d = this.genBuffer(
-            .20 + randSeed * .4, 
-            .03 + randSeed * .03 + Math.random() * .01, 
-            Math.floor(SmoothTool.random(5, 9)),
-            .8 + randSeed * .3 + Math.random() * .1
+            .05 + randSeed * .02, 
+            .01 + randSeed * .01 + Math.random() * .01, 
+            .01 + randSeed * .01 + Math.random() * .01
         );
-
-        
 
         this.vertexBuffer = this.gl.createBuffer();
         this.pointNum = d.length / 3;
@@ -59,19 +60,27 @@ class Planet implements Object3D {
 
     /**
      * 指定长度的区间内生成固定点
-     * 固定距离随机摆动
+     * 固定距离摆动
      * @param len 
      * @param num 
      * @param pow 
+     * @param r
      */
-    private genRandomPointM(len:number,num:number,pow:number):number[][] {
+    private genRandomPointD(
+        len:number, 
+        num:number, 
+        pow:number, 
+        r:number
+    ):number[][] {
 
         let res = [];
 
         for (let i = 0; i < num; i++) {
             res.push([
                 Math.floor(i * len / (num - 1)),
-                (Math.random() - .5) * 2 * pow
+                (i % 2 ? 1 : -1) * pow + 
+                (i % 2 ? 1 : 0) * (Math.random() - .5) * 2 * r,
+                
             ]);
         }
 
@@ -82,14 +91,12 @@ class Planet implements Object3D {
      * 生成网格
      * @param r 半径
      * @param p 半径浮动
-     * @param f 浮动频率
      * @param o 平滑程度
      * @param e 精度
      */
     public genBuffer(
         r:number, 
         p:number, 
-        f:number, 
         o:number = 1,
         e:number = Math.PI / 45
     ):number[] {
@@ -101,7 +108,7 @@ class Planet implements Object3D {
         let num = Math.PI * 2 / e;
 
         // 生成抖动数据
-        let d = this.genRandomPointM(num, f, p);
+        let d = this.genRandomPointD(num, 11, r / 3, p);
 
         // 闭合数据
         d[d.length - 1][1] = d[0][1];

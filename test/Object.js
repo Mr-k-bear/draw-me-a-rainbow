@@ -14,16 +14,17 @@ class Tester extends Rainbow.GLRenderer {
         this.gl.enable(this.gl.DEPTH_TEST);
         this.cleanColor = [147 / 255, 187 / 255, 219 / 255, 1];
 
+        this.flutter = new Rainbow.FlutterShader(this.gl);
         this.planet = new Rainbow.Planet(this.gl);
+        this.start = new Rainbow.Start(this.gl);
 
         this.box = new Rainbow.TestBox(this.gl);
         this.axis = new Rainbow.TestAxis(this.gl);
-        this.point = new Rainbow.TestAxis(this.gl);
         this.shader = new Rainbow.BasicsShader(this.gl);
         this.camera = new Rainbow.Camera(this.canvas);
 
         this.axis.r = 100;
-        this.point.r = 1;
+        this.start.pos[0] = -1;
 
         this.canvas.addListener("resize", ()=>{
             this.render();
@@ -40,10 +41,6 @@ class Tester extends Rainbow.GLRenderer {
                 this.canvas.mouseGlX, this.canvas.mouseGlY
             );
 
-            let point = this.camera.intersectionLineXYPlant(o, p);
-
-            this.point.pos = point.slice(0);
-
         })
     }
 
@@ -55,10 +52,15 @@ class Tester extends Rainbow.GLRenderer {
 
         this.camera.generateMat();
 
-        this.planet.draw(this.camera, this.shader);
+        this.planet.update(t);
+        this.start.update(t);
+
+        this.planet.draw(this.camera, this.flutter);
+        this.start.draw(this.camera, this.flutter);
+        
         this.box.draw(this.camera, this.shader);
         this.axis.draw(this.camera, this.shader);
-        this.point.draw(this.camera, this.shader);
+        
     }
 }
 
