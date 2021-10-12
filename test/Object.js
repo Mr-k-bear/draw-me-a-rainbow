@@ -17,6 +17,7 @@ class Tester extends Rainbow.GLRenderer {
         this.flutter = new Rainbow.FlutterShader(this.gl);
         this.planet = new Rainbow.Planet(this.gl);
         this.start = new Rainbow.Start(this.gl);
+        this.rainbow = new Rainbow.Rainbow(this.gl);
 
         this.box = new Rainbow.TestBox(this.gl);
         this.axis = new Rainbow.TestAxis(this.gl);
@@ -25,6 +26,7 @@ class Tester extends Rainbow.GLRenderer {
 
         this.axis.r = 100;
         this.start.pos[0] = -1;
+        this.rainbow.pos[0] = 1;
 
         this.canvas.addListener("resize", ()=>{
             this.render();
@@ -54,9 +56,11 @@ class Tester extends Rainbow.GLRenderer {
 
         this.planet.update(t);
         this.start.update(t);
+        this.rainbow.update(t);
 
         this.planet.draw(this.camera, this.flutter);
         this.start.draw(this.camera, this.flutter);
+        this.rainbow.draw(this.camera, this.flutter);
         
         this.box.draw(this.camera, this.shader);
         this.axis.draw(this.camera, this.shader);

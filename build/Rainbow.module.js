@@ -2577,7 +2577,7 @@ class FlutterShader extends GLProgram {
 
         void main(){
             vec3 sp = vPos + pos;
-            sp.xy += noise(vPos.xy + t / 8.) / 10.;
+            sp.xy += noise(vPos.xy + t / 7.5) / 9.5;
             gl_Position = mvp * vec4(sp, 1.);
         }
         `;
@@ -2749,93 +2749,160 @@ class TestBox {
 }
 
 /**
- * 三阶贝塞尔曲线
+ * 带有插值手柄的点
  */
-class Bezier3 {
-    pointA;
-    pointB;
-    handA;
-    handB;
-    len = 0;
-    tempVal;
+class Bezier3Point {
     /**
-     * 设置单一值
+     * 点位置
      */
-    setSimpVal(a, b, c, d) {
-        this.pointA.length = 0;
-        this.pointB.length = 0;
-        this.handA.length = 0;
-        this.handB.length = 0;
-        this.pointA.push(a);
-        this.pointB.push(b);
-        this.handA.push(c);
-        this.handB.push(d);
+    point;
+    /**
+     * 手柄 A
+     */
+    handA;
+    /**
+     * 手柄 B
+     */
+    handB;
+    /**
+     * 数据维度
+     */
+    _len;
+    get len() {
+        // 存在维度限制
+        if (this._len !== undefined)
+            return this._len;
+        // 计算最小维度
+        return Math.min(this.point.length, this.handA.length, this.handB.length);
     }
     /**
-     * 获取贝塞尔插值
-     * @param t
-     * @returns
+     * 用于曲线生成
      */
-    bezierM(t) {
-        // 长度搜索
-        if (this.len)
-            this.len = Math.min(this.pointA.length, this.pointB.length, this.handA.length, this.handB.length);
-        // 插值计算
-        this.tempVal = SmoothTool.bezier3(t);
+    time;
+    /**
+     * 设置数据维度个数
+     * @param len 维度个数
+     */
+    setLen(len) {
+        this._len = len;
+        return this;
+    }
+    /**
+     * 设置时间
+     * @param time 时间
+     */
+    setTime(time) {
+        this.time = time;
+        return this;
+    }
+    /**
+     * 构造函数
+     * @param point 数据点
+     * @param handA 手柄A
+     * @param handB 手柄B
+     */
+    constructor(point, handA = [], handB = []) {
+        this.point = point.slice(0);
+        this.handA = handA.slice(0);
+        this.handB = handB.slice(0);
+    }
+    /**
+     * 克隆一个新的点
+     */
+    clone() {
+        return new Bezier3Point(this.point, this.handA, this.handB)
+            .setTime(this.time)
+            .setLen(this.len);
+    }
+    /**
+     * 生成一对重合手柄
+     */
+    genNoneHand() {
+        this.handA = this.point.slice(0);
+        this.handB = this.point.slice(0);
+        return this;
+    }
+    /**
+     * 按照维度生成平滑手柄
+     * @param s 平滑等级
+     * @param b 分离平滑
+     * @param d 使用维度
+     */
+    genFlatHand(d = 0, s = 1, b = s) {
+        // 复制手柄
+        this.genFlatHand();
+        // 平滑移动
+        this.handA[d] -= s;
+        this.handB[d] += b;
+        return this;
+    }
+    /**
+     * 生成垂直于向量的手柄
+     *      |
+     * A <--|--> B
+     *      |
+     * @param x X 分量
+     * @param y Y 分量
+     * @param s 平滑程度
+     * @param b 分离平滑
+     */
+    genSideHand(x, y, s = 1, b = s) {
+        // 计算长度
+        let len = (x ** 2 + y ** 2) ** .5;
+        // 归一化
+        let nx = x / len;
+        let ny = y / len;
+        // 旋转向量
+        let rx = nx * 0 - ny * 1;
+        let ry = ny * 0 + nx * 1;
+        // 设置手柄 A
+        this.handA[0] = this.point[0] + rx * s;
+        this.handA[1] = this.point[1] + ry * b;
+        // 设置手柄 B
+        this.handB[0] = this.point[0] - rx * s;
+        this.handB[1] = this.point[1] - ry * b;
+        return this;
+    }
+    /**
+     * 生成方向向量的手柄
+     *
+     * A <-- ----> --> B
+     *
+     * @param x X 分量
+     * @param y Y 分量
+     * @param s 平滑程度
+     * @param b 分离平滑
+     */
+    genDirHand(x, y, s = 1, b = s) {
+        // 计算长度
+        let len = (x ** 2 + y ** 2) ** .5;
+        // 归一化
+        let nx = x / len;
+        let ny = y / len;
+        // 设置手柄 A
+        this.handA[0] = this.point[0] - nx * s;
+        this.handA[1] = this.point[1] - ny * b;
+        // 设置手柄 B
+        this.handB[0] = this.point[0] + nx * s;
+        this.handB[1] = this.point[1] + ny * b;
+        return this;
+    }
+    /**
+     * 获取于另一个点之间的插值
+     * @param p 下一个点
+     * @param t 插值进度
+     */
+    bezier3(p, t) {
         // 生成插值
         let res = [];
         for (let i = 0; i < this.len; i++) {
+            // 贝塞尔插值
             res[i] =
-                this.pointA[i] * this.tempVal[0] +
-                    this.handA[i] * this.tempVal[1] +
-                    this.handB[i] * this.tempVal[2] +
-                    this.pointB[i] * this.tempVal[3];
+                this.point[i] * (1 - t) ** 3 +
+                    this.handB[i] * 3 * t * (1 - t) ** 2 +
+                    p.handA[i] * 3 * t ** 2 * (1 - t) +
+                    p.point[i] * t ** 3;
         }
-        return res;
-    }
-}
-/**
- * 平滑插值工具
- */
-class SmoothTool {
-    /**
-     * 三阶贝塞尔插值
-     * @param t 进度
-     */
-    static bezier3(t) {
-        return [
-            (1 - t) ** 3,
-            3 * t * (1 - t) ** 2,
-            3 * t ** 2 * (1 - t),
-            t ** 3
-        ];
-    }
-    /**
-     * 生成贝塞尔点集
-     * @param val 一维稀疏数组
-     * @param w 插值尾值
-     * @param smooth 平滑程度
-     * @param f 插值频率
-     */
-    static genSmoothLine(val, w = false, smooth = 1, f = 1) {
-        let res = [];
-        let bz = new Bezier3();
-        for (let i = 0; i < val.length - 1; i++) {
-            bz.pointA = val[i];
-            bz.pointB = val[i + 1];
-            bz.handA = [bz.pointA[0] + (bz.pointA[3] ?? smooth), bz.pointA[1]];
-            bz.handB = [bz.pointB[0] - (bz.pointB[2] ?? smooth), bz.pointB[1]];
-            bz.len = 2;
-            // console.log(bz);
-            // 计算插值次数
-            const num = (bz.pointB[0] - bz.pointA[0]) / f;
-            for (let j = 0; j < num; j++) {
-                // console.log(num, j, j / num);
-                res.push(bz.bezierM(j / num)[1]);
-            }
-        }
-        if (w)
-            res.push(val[val.length - 1][1]);
         return res;
     }
     /**
@@ -2845,6 +2912,161 @@ class SmoothTool {
      */
     static random(min, max) {
         return Math.random() * (max - min) + min;
+    }
+    /**
+     * 获取两个点之间的 bezier3 插值
+     * @param p1 第一个 bezier 点
+     * @param p2 第二个 bezier 点
+     * @param t 插值进度
+     */
+    static bezier3(p1, p2, t) {
+        return p1.bezier3(p2, t);
+    }
+    /**
+     * 贝塞尔数据转顶点数据
+     * 这个函数通常用来测试
+     * @param b 贝塞尔点集
+     * @param d 维度拓展
+     */
+    static bezierPoint2Vertex(b, d = true) {
+        let res = [];
+        for (let i = 0; i < b.length; i++) {
+            // hand B
+            for (let j = 0; j < b[i].handA.length; j++)
+                res.push(b[i].handB[j]);
+            if (d)
+                res.push(0);
+            // point
+            for (let j = 0; j < b[i].handA.length; j++)
+                res.push(b[i].point[j]);
+            if (d)
+                res.push(0);
+            // handA
+            for (let j = 0; j < b[i].handA.length; j++)
+                res.push(b[i].handA[j]);
+            if (d)
+                res.push(0);
+        }
+        return res;
+    }
+    /**
+     * 处理圆形顶点数据
+     * @param data 数据
+     * @param c 圆心
+     */
+    static processCircularData(data, ...c) {
+        // 封闭圆
+        data.push(data[0]);
+        data.push(data[1]);
+        data.push(data[2]);
+        // console.log(data[0], data[1], data[2]);
+        // 设置圆心
+        data.unshift(c[2] ?? 0);
+        data.unshift(c[1] ?? 0);
+        data.unshift(c[0] ?? 0);
+        // console.log(data);
+        return data;
+    }
+    /**
+     * 根据时间间隔 t 来生成一条平滑的曲线
+     * @param points 采样点
+     * @param f 插值频率
+     * @param w 是否加入末尾的点
+     * @param d 维度拓展
+     */
+    static genSmoothLine(points, f = 1, w = false, d = true) {
+        // 对默认点集进行排序
+        points = points.sort((a, b) => a.time - b.time);
+        // 开始插值
+        let res = [];
+        for (let i = 0; i < points.length - 1; i++) {
+            // 获取插值点
+            let pa = points[i];
+            let pb = points[i + 1];
+            // 计算插值次数
+            const num = (pb.time - pa.time) / f;
+            for (let j = 0; j < num; j++) {
+                res = res.concat(pa.bezier3(pb, j / num));
+                if (d)
+                    res.push(0);
+            }
+        }
+        if (w)
+            res = res.concat(points[points.length - 1].point);
+        if (d && w)
+            res.push(0);
+        return res;
+    }
+    /**
+     * 生成一个等距随机摆动圆环
+     * @param r 半径
+     * @param p 幅度
+     * @param n 数量
+     * @param s 平滑
+     * @param e 精度
+     */
+    static genIsometricCircle(r, p, n, s, e = Math.PI / 60) {
+        // 中共点个数
+        let num = Math.PI * 2 / e;
+        let res = [];
+        for (let i = 0; i < n; i++) {
+            // 进度
+            let pro = i / n;
+            let rl = (Math.random() - .5) * 2 * p;
+            let pm = [
+                Math.cos(-pro * Math.PI * 2) * (r + rl),
+                Math.sin(-pro * Math.PI * 2) * (r + rl)
+            ];
+            // 向量旋转
+            let h = new Bezier3Point(pm)
+                // 设置长度
+                .setLen(2)
+                // 计算时间向量
+                .setTime(pro * num)
+                // 生成向心手柄
+                .genSideHand(pm[0], pm[1], s);
+            // console.log(pm)
+            res.push(h);
+        }
+        // 闭合圆形
+        res.push(res[0].clone().setTime(num));
+        return res;
+    }
+    /**
+     * 生成一个等距周期摆动圆环
+     * @param r 半径
+     * @param p 幅度
+     * @param n 数量
+     * @param s 平滑
+     * @param e 精度
+     */
+    static genCycleIsometricCircle(r, p, n, s, e = Math.PI / 60) {
+        // 中共点个数
+        let num = Math.PI * 2 / e;
+        let res = [];
+        for (let i = 0; i < n; i++) {
+            // 进度
+            let pro = i / n;
+            let rl = (i % 2 === 0 ? 1 : -1) * r * .3 +
+                (Math.random() - .5) * 2 * p * (i % 2 === 0 ? 1 : .1);
+            let pm = [
+                Math.cos(-pro * Math.PI * 2) * (r + rl),
+                Math.sin(-pro * Math.PI * 2) * (r + rl)
+            ];
+            // 向量旋转
+            let h = new Bezier3Point(pm)
+                // 设置长度
+                .setLen(2)
+                // 计算时间向量
+                .setTime(pro * num)
+                // 生成向心手柄
+                .genSideHand(pm[0], pm[1], s * (i % 2 === 0 ? 1 : 0.5));
+            // console.log(pm)
+            res.push(h);
+        }
+        // 闭合圆形
+        res.push(res[0].clone().setTime(num));
+        return res;
     }
 }
 
@@ -2862,77 +3084,41 @@ class Planet {
     constructor(gl) {
         this.gl = gl;
         // 随机颜色
-        let colorDep = SmoothTool.random(0.98, 1.02);
+        let colorDep = Bezier3Point.random(0.98, 1.02);
         this.color = [
             colorDep * Planet.NORMAL_COLOR[0],
             colorDep * Planet.NORMAL_COLOR[1],
             colorDep * Planet.NORMAL_COLOR[2]
         ];
-        // 生成多边形数据
+        // 生成随机影响因子
         let randSeed = Math.random();
-        let d = this.genBuffer(.20 + randSeed * .4, .03 + randSeed * .03 + Math.random() * .01, Math.floor(SmoothTool.random(5, 9)), .8 + randSeed * .3 + Math.random() * .1);
+        let randomParam = [
+            .20 + randSeed * .40,
+            .03 + randSeed * .01 + Math.random() * .01,
+            5.0 + Math.floor(randSeed * 3),
+            .09 + randSeed * .10 + Math.random() * .05
+        ];
+        // 平滑度影响因子
+        randomParam[3] =
+            (randomParam[0]) ** .9 * .29 +
+                ((7 - randomParam[2]) / 7) * .2;
+        // 生成随机圆形点
+        let circle = Bezier3Point.genIsometricCircle.apply(Bezier3Point, randomParam);
+        // 生成多边形数据
+        let data = Bezier3Point.genSmoothLine(circle);
+        // let data = Bezier3Point.bezierPoint2Vertex(circle);
+        // 处理圆形数据
+        data = Bezier3Point.processCircularData(data);
         this.vertexBuffer = this.gl.createBuffer();
-        this.pointNum = d.length / 3;
+        this.pointNum = data.length / 3;
         this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.vertexBuffer);
-        this.gl.bufferData(this.gl.ARRAY_BUFFER, new Float32Array(d), this.gl.STATIC_DRAW);
+        this.gl.bufferData(this.gl.ARRAY_BUFFER, new Float32Array(data), this.gl.STATIC_DRAW);
     }
     /**
      * 坐标
      */
     pos = [0, 0, 0];
-    /**
-     * 指定长度的区间内生成固定点
-     * 固定距离随机摆动
-     * @param len
-     * @param num
-     * @param pow
-     */
-    genRandomPointM(len, num, pow) {
-        let res = [];
-        for (let i = 0; i < num; i++) {
-            res.push([
-                Math.floor(i * len / (num - 1)),
-                (Math.random() - .5) * 2 * pow
-            ]);
-        }
-        return res;
-    }
-    /**
-     * 生成网格
-     * @param r 半径
-     * @param p 半径浮动
-     * @param f 浮动频率
-     * @param o 平滑程度
-     * @param e 精度
-     */
-    genBuffer(r, p, f, o = 1, e = Math.PI / 45) {
-        const dir = [0, 0];
-        const res = [0, 0, 0];
-        // 点个数
-        let num = Math.PI * 2 / e;
-        // 生成抖动数据
-        let d = this.genRandomPointM(num, f, p);
-        // 闭合数据
-        d[d.length - 1][1] = d[0][1];
-        // 插值
-        let m = SmoothTool.genSmoothLine(d, false, o);
-        for (let i = 0; i < m.length; i++) {
-            // 当前角度
-            let th = i * 2 * Math.PI / m.length;
-            // 参数方程求解
-            dir[0] = Math.cos(th);
-            dir[1] = Math.sin(th);
-            res.push(dir[0] * (r + m[i]));
-            res.push(dir[1] * (r + m[i]));
-            res.push(0);
-        }
-        // 连接起始点
-        res.push(res[3]);
-        res.push(res[4]);
-        res.push(res[5]);
-        return res;
-    }
-    time = SmoothTool.random(0, 10);
+    time = Bezier3Point.random(0, 100);
     color;
     update(t) {
         this.time += t ?? 0;
@@ -2974,8 +3160,8 @@ class Start {
     constructor(gl) {
         this.gl = gl;
         // 随机颜色
-        let colorDep = SmoothTool.random(0.98, 1.02);
-        let colorRind = Math.floor(SmoothTool.random(0, Start.NORMAL_COLOR.length));
+        let colorDep = Bezier3Point.random(0.98, 1.02);
+        let colorRind = Math.floor(Bezier3Point.random(0, Start.NORMAL_COLOR.length));
         this.color = [
             colorDep * Start.NORMAL_COLOR[colorRind][0],
             colorDep * Start.NORMAL_COLOR[colorRind][1],
@@ -2983,70 +3169,28 @@ class Start {
         ];
         // 生成多边形数据
         let randSeed = Math.random();
-        let d = this.genBuffer(.05 + randSeed * .02, .01 + randSeed * .01 + Math.random() * .01, .01 + randSeed * .01 + Math.random() * .01);
+        let randomParam = [
+            .05 + randSeed * .02,
+            .005 + randSeed * .005 + Math.random() * .001,
+            10, .02
+        ];
+        // 生成随机圆形点
+        let circle = Bezier3Point.genCycleIsometricCircle.apply(Bezier3Point, randomParam);
+        // 生成多边形数据
+        let data = Bezier3Point.genSmoothLine(circle);
+        // let data = Bezier3Point.bezierPoint2Vertex(circle);
+        // 处理圆形数据
+        data = Bezier3Point.processCircularData(data);
         this.vertexBuffer = this.gl.createBuffer();
-        this.pointNum = d.length / 3;
+        this.pointNum = data.length / 3;
         this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.vertexBuffer);
-        this.gl.bufferData(this.gl.ARRAY_BUFFER, new Float32Array(d), this.gl.STATIC_DRAW);
+        this.gl.bufferData(this.gl.ARRAY_BUFFER, new Float32Array(data), this.gl.STATIC_DRAW);
     }
     /**
      * 坐标
      */
     pos = [0, 0, 0];
-    /**
-     * 指定长度的区间内生成固定点
-     * 固定距离摆动
-     * @param len
-     * @param num
-     * @param pow
-     * @param r
-     */
-    genRandomPointD(len, num, pow, r) {
-        let res = [];
-        for (let i = 0; i < num; i++) {
-            res.push([
-                Math.floor(i * len / (num - 1)),
-                (i % 2 ? 1 : -1) * pow +
-                    (i % 2 ? 1 : 0) * (Math.random() - .5) * 2 * r,
-            ]);
-        }
-        return res;
-    }
-    /**
-     * 生成网格
-     * @param r 半径
-     * @param p 半径浮动
-     * @param o 平滑程度
-     * @param e 精度
-     */
-    genBuffer(r, p, o = 1, e = Math.PI / 45) {
-        const dir = [0, 0];
-        const res = [0, 0, 0];
-        // 点个数
-        let num = Math.PI * 2 / e;
-        // 生成抖动数据
-        let d = this.genRandomPointD(num, 11, r / 3, p);
-        // 闭合数据
-        d[d.length - 1][1] = d[0][1];
-        // 插值
-        let m = SmoothTool.genSmoothLine(d, false, o);
-        for (let i = 0; i < m.length; i++) {
-            // 当前角度
-            let th = i * 2 * Math.PI / m.length;
-            // 参数方程求解
-            dir[0] = Math.cos(th);
-            dir[1] = Math.sin(th);
-            res.push(dir[0] * (r + m[i]));
-            res.push(dir[1] * (r + m[i]));
-            res.push(0);
-        }
-        // 连接起始点
-        res.push(res[3]);
-        res.push(res[4]);
-        res.push(res[5]);
-        return res;
-    }
-    time = SmoothTool.random(0, 10);
+    time = Bezier3Point.random(0, 100);
     color;
     update(t) {
         this.time += t ?? 0;
@@ -3070,5 +3214,144 @@ class Start {
     }
 }
 
-export { BasicsShader, Bezier3, Camera, Clock, FlutterShader, GLCanvas, GLProgram, GLRenderer, Planet, SmoothTool, Start, TestAxis, TestBox };
+class Rainbow {
+    /**
+     * GL 上下文
+     */
+    gl;
+    static NORMAL_COLOR = [
+        [253 / 255, 180 / 255, 197 / 255],
+        [255 / 255, 204 / 255, 167 / 255],
+        [255 / 255, 236 / 255, 181 / 255],
+        [141 / 255, 247 / 255, 176 / 255],
+        [135 / 255, 187 / 255, 252 / 255],
+        [208 / 255, 192 / 255, 243 / 255]
+    ];
+    /**
+     * 主要路径
+     */
+    pathMain = [0, 0, 0];
+    /**
+     * 多边形顶点数据
+     */
+    vertexArray = [];
+    vertexBuffer;
+    pointNum = 0;
+    /**
+     * 最大缓冲区大小
+     */
+    maxVertexNum = 1024 * 3;
+    ///////////////// START 曲线生成算法 START //////////////////////
+    /**
+     * 最小限制角度
+     */
+    minAngle = Math.PI / 6;
+    /**
+     * 上次的向量
+     */
+    lastVector = [NaN, NaN];
+    /**
+     * 使用向量延长路径
+     */
+    extendVector(x, y) {
+        // 计算位移距离
+        let dis = (x ** 2 + y ** 2) ** .5;
+        // 如果向量没有位移 阻止下面计算
+        if (dis <= 0)
+            return;
+        // 归一化向量
+        let nx = x / dis;
+        let ny = y / dis;
+        // 如果上次有向量了
+        if (!isNaN(this.lastVector[0]) && !isNaN(this.lastVector[1])) {
+            // 计算夹角
+            let th = this.lastVector[0] * nx + this.lastVector[1] * ny;
+            // console.log(this.lastVector[0],this.lastVector[1], nx, ny);
+            // 计算弧度
+            let cl = Math.acos(th);
+            // console.log(cl, this.minAngle);
+            // 如果超出角度
+            if (cl > this.minAngle) {
+                // 计算朝向
+                let dp = (this.lastVector[0] * y - x * this.lastVector[1]) > 0 ? 1 : -1;
+                // 旋转角度
+                let rth = this.minAngle * dp;
+                // 向量旋转
+                nx = this.lastVector[0] * Math.cos(rth) - this.lastVector[1] * Math.sin(rth);
+                ny = this.lastVector[1] * Math.cos(rth) + this.lastVector[0] * Math.sin(rth);
+            }
+        }
+        // 生成主路径数据
+        let nextX = this.pathMain[this.pathMain.length - 3] + nx * dis;
+        let nextY = this.pathMain[this.pathMain.length - 2] + ny * dis;
+        // js 内存
+        this.pathMain.push(nextX);
+        this.pathMain.push(nextY);
+        this.pathMain.push(0);
+        // gl 内存
+        this.updateVertexDate([nextX, nextY, 0]);
+        // 保存上次向量
+        this.lastVector[0] = nx;
+        this.lastVector[1] = ny;
+    }
+    /**
+     * 上传数据到 gl
+     * @param arr 数据数组
+     */
+    updateVertexDate(arr) {
+        if (this.pointNum >= this.maxVertexNum)
+            return;
+        this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.vertexBuffer);
+        this.gl.bufferSubData(this.gl.ARRAY_BUFFER, this.pointNum * 4, new Float32Array(arr));
+        this.pointNum += arr.length;
+    }
+    /**
+     * 生成角度范围的随机摆线
+     */
+    genRangeSwing() {
+    }
+    /////////////// END 曲线生成算法 END ////////////////////////
+    /**
+     * 初始化顶点
+     */
+    constructor(gl) {
+        this.gl = gl;
+        // 随机颜色
+        this.color = [.5, .5, .5];
+        // 创建缓冲区
+        this.vertexBuffer = this.gl.createBuffer();
+        this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.vertexBuffer);
+        this.gl.bufferData(this.gl.ARRAY_BUFFER, this.maxVertexNum, this.gl.DYNAMIC_DRAW);
+        // 添加开始的三个点
+        this.updateVertexDate([0, 0, 0]);
+    }
+    /**
+     * 坐标
+     */
+    pos = [0, 0, 0];
+    time = Bezier3Point.random(0, 10);
+    color;
+    update(t) {
+        this.time += t ?? 0;
+    }
+    draw(camera, shader) {
+        // 使用程序
+        shader.use();
+        // 绑定缓冲区
+        this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.vertexBuffer);
+        // 指定指针数据
+        this.gl.vertexAttribPointer(shader.attribLocate("vPos"), 3, this.gl.FLOAT, false, 0, 0);
+        // mvp参数传递
+        shader.mvp(camera.transformMat);
+        // 时间
+        shader.t(this.time);
+        // 半径传递
+        shader.color(this.color);
+        shader.pos(this.pos);
+        // 开始绘制
+        this.gl.drawArrays(this.gl.LINE_LOOP, 0, this.pointNum / 3);
+    }
+}
+
+export { BasicsShader, Bezier3Point, Camera, Clock, FlutterShader, GLCanvas, GLProgram, GLRenderer, Planet, Rainbow, Start, TestAxis, TestBox };
 //# sourceMappingURL=Rainbow.module.js.map

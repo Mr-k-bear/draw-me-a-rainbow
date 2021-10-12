@@ -1,128 +1,203 @@
-export {Bezier3, SmoothTool}
+export {Bezier3Point}
 
 /**
- * 三阶贝塞尔曲线
+ * 带有插值手柄的点
  */
-class Bezier3 {
-    
-    public pointA:number[];
-    public pointB:number[];
+class Bezier3Point {
 
+    /**
+     * 点位置
+     */
+    public point:number[];
+
+    /**
+     * 手柄 A
+     */
     public handA:number[];
+
+    /**
+     * 手柄 B
+     */
     public handB:number[];
 
-    public len:number = 0;
-
-    private tempVal:number[];
-
     /**
-     * 设置单一值
+     * 数据维度
      */
-    public setSimpVal(a:number, b:number, c:number, d:number){
+    private _len:number;
+    public get len():number {
 
-        this.pointA.length = 0;
-        this.pointB.length = 0;
-        this.handA.length = 0;
-        this.handB.length = 0;
+        // 存在维度限制
+        if (this._len !== undefined) return this._len;
 
-        this.pointA.push(a);
-        this.pointB.push(b);
-        this.handA.push(c);
-        this.handB.push(d);
-    }
-
-    /**
-     * 获取贝塞尔插值
-     * @param t 
-     * @returns 
-     */
-    public bezierM(t:number){
-
-        // 长度搜索
-        if (this.len) this.len = Math.min(
-            this.pointA.length,
-            this.pointB.length,
+        // 计算最小维度
+        return Math.min(
+            this.point.length, 
             this.handA.length,
             this.handB.length
         );
+    }
 
-        // 插值计算
-        this.tempVal = SmoothTool.bezier3(t);
+    /**
+     * 用于曲线生成
+     */
+    public time:number;
+
+    /**
+     * 设置数据维度个数
+     * @param len 维度个数
+     */
+    public setLen(len:number) {
+        this._len = len;
+        return this;
+    }
+
+    /**
+     * 设置时间
+     * @param time 时间
+     */
+    public setTime(time:number) {
+        this.time = time;
+        return this;
+    }
+
+    /**
+     * 构造函数
+     * @param point 数据点
+     * @param handA 手柄A
+     * @param handB 手柄B
+     */
+    public constructor(point:number[], handA:number[] = [], handB:number[] = []){
+        this.point = point.slice(0);
+        this.handA = handA.slice(0);
+        this.handB = handB.slice(0);
+    }
+
+    /**
+     * 克隆一个新的点
+     */
+    public clone(){
+
+        return new Bezier3Point(
+            this.point,
+            this.handA,
+            this.handB
+        )
+        
+        .setTime(this.time)
+        .setLen(this.len)
+    }
+
+    /**
+     * 生成一对重合手柄
+     */
+    public genNoneHand() {
+        this.handA = this.point.slice(0);
+        this.handB = this.point.slice(0);
+        return this;
+    }
+
+    /**
+     * 按照维度生成平滑手柄
+     * @param s 平滑等级
+     * @param b 分离平滑
+     * @param d 使用维度
+     */
+    public genFlatHand(d:number = 0, s:number = 1, b:number = s) {
+
+        // 复制手柄
+        this.genFlatHand();
+
+        // 平滑移动
+        this.handA[d] -= s;
+        this.handB[d] += b;
+
+        return this;
+    }
+
+    /**
+     * 生成垂直于向量的手柄
+     *      |
+     * A <--|--> B
+     *      |
+     * @param x X 分量
+     * @param y Y 分量
+     * @param s 平滑程度
+     * @param b 分离平滑
+     */
+    public genSideHand(x:number, y:number, s:number = 1, b:number = s) {
+
+        // 计算长度
+        let len = (x ** 2 + y ** 2) ** .5;
+
+        // 归一化
+        let nx = x / len;
+        let ny = y / len;
+
+        // 旋转向量
+        let rx = nx * 0 - ny * 1;
+        let ry = ny * 0 + nx * 1;
+
+        // 设置手柄 A
+        this.handA[0] = this.point[0] + rx * s;
+        this.handA[1] = this.point[1] + ry * b;
+
+        // 设置手柄 B
+        this.handB[0] = this.point[0] - rx * s;
+        this.handB[1] = this.point[1] - ry * b;
+
+        return this;
+    }
+
+    /**
+     * 生成方向向量的手柄
+     * 
+     * A <-- ----> --> B
+     * 
+     * @param x X 分量
+     * @param y Y 分量
+     * @param s 平滑程度
+     * @param b 分离平滑
+     */
+    public genDirHand(x:number, y:number, s:number = 1, b:number = s) {
+
+        // 计算长度
+        let len = (x ** 2 + y ** 2) ** .5;
+
+        // 归一化
+        let nx = x / len;
+        let ny = y / len;
+
+        // 设置手柄 A
+        this.handA[0] = this.point[0] - nx * s;
+        this.handA[1] = this.point[1] - ny * b;
+
+        // 设置手柄 B
+        this.handB[0] = this.point[0] + nx * s;
+        this.handB[1] = this.point[1] + ny * b;
+
+        return this;
+    }
+
+    /**
+     * 获取于另一个点之间的插值
+     * @param p 下一个点
+     * @param t 插值进度
+     */
+    public bezier3(p:Bezier3Point, t:number):number[] {
 
         // 生成插值
         let res = [];
         for (let i = 0; i < this.len; i++) {
+
+            // 贝塞尔插值
             res[i] = 
-            this.pointA[i] * this.tempVal[0] +
-            this.handA[i] * this.tempVal[1] +
-            this.handB[i] * this.tempVal[2] +
-            this.pointB[i] * this.tempVal[3]
+            this.point[i] * (1 - t) ** 3 +
+            this.handB[i] * 3 * t * (1 - t) ** 2 +
+            p.handA[i]    * 3 * t ** 2 * (1 - t) +
+            p.point[i]    * t ** 3
         }
 
         return res;
-    }
-
-}
-
-/**
- * 平滑插值工具
- */
-class SmoothTool {
-
-    /**
-     * 三阶贝塞尔插值
-     * @param t 进度
-     */
-    static bezier3(t:number):number[] {
-        return [
-            (1 - t) ** 3,
-            3 * t * (1 - t) ** 2,
-            3 * t ** 2 * (1 - t),
-            t ** 3
-        ];
-    }
-
-    /**
-     * 生成贝塞尔点集
-     * @param val 一维稀疏数组
-     * @param w 插值尾值
-     * @param smooth 平滑程度
-     * @param f 插值频率
-     */
-    static genSmoothLine(val:number[][], w:boolean = false, smooth:number = 1, f:number = 1) {
-
-        let res:number[] = [];
-
-        let bz = new Bezier3();
-
-        for (let i = 0; i < val.length - 1; i++) {
-
-            bz.pointA = val[i];
-            bz.pointB = val[i + 1];
-            
-            bz.handA = [bz.pointA[0] + (bz.pointA[3] ?? smooth), bz.pointA[1]];
-            bz.handB = [bz.pointB[0] - (bz.pointB[2] ?? smooth), bz.pointB[1]];
-
-            bz.len = 2;
-
-            // console.log(bz);
-
-            // 计算插值次数
-            const num = (bz.pointB[0] - bz.pointA[0]) / f;
-
-            for(let j = 0; j < num; j++) {
-
-                // console.log(num, j, j / num);
-
-                res.push(bz.bezierM(j / num)[1]);
-            }
-
-        }
-
-        if (w) res.push(val[val.length - 1][1]);
-
-        return res;
-
     }
 
     /**
@@ -132,5 +207,213 @@ class SmoothTool {
      */
     static random(min:number, max:number):number {
         return Math.random() * (max - min) + min;
+    }
+
+    /**
+     * 获取两个点之间的 bezier3 插值
+     * @param p1 第一个 bezier 点
+     * @param p2 第二个 bezier 点
+     * @param t 插值进度
+     */
+    public static bezier3(p1:Bezier3Point, p2:Bezier3Point, t:number):number[] {
+        return p1.bezier3(p2, t);
+    }
+
+    /**
+     * 贝塞尔数据转顶点数据
+     * 这个函数通常用来测试
+     * @param b 贝塞尔点集
+     * @param d 维度拓展
+     */
+    public static bezierPoint2Vertex(b:Bezier3Point[], d:boolean = true):number[] {
+
+        let res:number[] = [];
+
+        for (let i = 0; i < b.length; i++) {
+
+            // hand B
+            for (let j = 0; j < b[i].handA.length; j++) 
+            res.push(b[i].handB[j]);
+
+            if (d) res.push(0);
+
+            // point
+            for (let j = 0; j < b[i].handA.length; j++) 
+            res.push(b[i].point[j]);
+
+            if (d) res.push(0);
+            
+            // handA
+            for (let j = 0; j < b[i].handA.length; j++) 
+            res.push(b[i].handA[j]);
+
+            if (d) res.push(0);
+        }
+
+        return res;
+    }
+
+    /**
+     * 处理圆形顶点数据
+     * @param data 数据
+     * @param c 圆心
+     */
+    public static processCircularData(data:number[], ...c:number[]):number[] {
+
+        // 封闭圆
+        data.push(data[0]);
+        data.push(data[1]);
+        data.push(data[2]);
+
+        // console.log(data[0], data[1], data[2]);
+
+        // 设置圆心
+        data.unshift(c[2] ?? 0);
+        data.unshift(c[1] ?? 0);
+        data.unshift(c[0] ?? 0);
+        
+        // console.log(data);
+
+        return data;
+    }
+
+    /**
+     * 根据时间间隔 t 来生成一条平滑的曲线
+     * @param points 采样点
+     * @param f 插值频率
+     * @param w 是否加入末尾的点
+     * @param d 维度拓展
+     */
+    public static genSmoothLine(
+        points:Bezier3Point[], f:number = 1, w:boolean = false, d:boolean = true
+    ):number[] {
+        
+        // 对默认点集进行排序
+        points = points.sort((a, b) => a.time - b.time);
+
+        // 开始插值
+        let res:number[] = [];
+
+        for(let i = 0; i < points.length - 1; i++) {
+
+            // 获取插值点
+            let pa = points[i];
+            let pb = points[i + 1];
+
+            // 计算插值次数
+            const num = (pb.time - pa.time) / f;
+
+            for(let j = 0; j < num; j++) {
+                res = res.concat(pa.bezier3(pb, j / num));
+                if (d) res.push(0);
+            }
+        }
+
+        if (w) res = res.concat(points[points.length - 1].point);
+        if (d && w) res.push(0);
+
+        return res;
+    }
+
+    /**
+     * 生成一个等距随机摆动圆环
+     * @param r 半径
+     * @param p 幅度
+     * @param n 数量
+     * @param s 平滑
+     * @param e 精度
+     */
+    public static genIsometricCircle(
+        r:number, p:number, n:number, s:number, e:number = Math.PI / 60
+    ):Bezier3Point[] {
+
+        // 中共点个数
+        let num = Math.PI * 2 / e;
+
+        let res:Bezier3Point[] = [];
+        for(let i = 0; i < n; i++) {
+
+            // 进度
+            let pro = i / n;
+            let rl = (Math.random() - .5) * 2 * p;
+
+            let pm = [
+                Math.cos(- pro * Math.PI * 2) * (r + rl),
+                Math.sin(- pro * Math.PI * 2) * (r + rl)
+            ];
+
+            // 向量旋转
+            let h = new Bezier3Point(pm)
+
+            // 设置长度
+            .setLen(2)
+            
+            // 计算时间向量
+            .setTime(pro * num)
+
+            // 生成向心手柄
+            .genSideHand(pm[0], pm[1], s);
+
+            // console.log(pm)
+
+            res.push(h);
+        }
+
+        // 闭合圆形
+        res.push(res[0].clone().setTime(num));
+
+        return res;
+    }
+
+    /**
+     * 生成一个等距周期摆动圆环
+     * @param r 半径
+     * @param p 幅度
+     * @param n 数量
+     * @param s 平滑
+     * @param e 精度
+     */
+    public static genCycleIsometricCircle(
+        r:number, p:number, n:number, s:number, e:number = Math.PI / 60
+    ) {
+
+        // 中共点个数
+        let num = Math.PI * 2 / e;
+
+        let res:Bezier3Point[] = [];
+        for(let i = 0; i < n; i++) {
+
+            // 进度
+            let pro = i / n;
+            let rl = (i % 2 === 0 ? 1 : -1) * r * .3 +
+            (Math.random() - .5) * 2 * p * (i % 2 === 0 ? 1 : .1);
+
+            let pm = [
+                Math.cos(- pro * Math.PI * 2) * (r + rl),
+                Math.sin(- pro * Math.PI * 2) * (r + rl)
+            ];
+
+            // 向量旋转
+            let h = new Bezier3Point(pm)
+
+            // 设置长度
+            .setLen(2)
+            
+            // 计算时间向量
+            .setTime(pro * num)
+
+            // 生成向心手柄
+            .genSideHand(pm[0], pm[1], s * (i % 2 === 0 ? 1 : 0.5));
+
+            // console.log(pm)
+
+            res.push(h);
+        }
+
+        // 闭合圆形
+        res.push(res[0].clone().setTime(num));
+
+        return res;
+
     }
 }

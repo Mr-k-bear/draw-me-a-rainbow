@@ -530,23 +530,6 @@ declare class Planet implements Object3D {
      * 坐标
      */
     pos: [number, number, number];
-    /**
-     * 指定长度的区间内生成固定点
-     * 固定距离随机摆动
-     * @param len
-     * @param num
-     * @param pow
-     */
-    private genRandomPointM;
-    /**
-     * 生成网格
-     * @param r 半径
-     * @param p 半径浮动
-     * @param f 浮动频率
-     * @param o 平滑程度
-     * @param e 精度
-     */
-    genBuffer(r: number, p: number, f: number, o?: number, e?: number): number[];
     private time;
     color: number[];
     update(t: number): void;
@@ -569,23 +552,61 @@ declare class Start implements Object3D {
      * 坐标
      */
     pos: [number, number, number];
+    private time;
+    color: number[];
+    update(t: number): void;
+    draw(camera: Camera, shader: FlutterShader): void;
+}
+
+declare class Rainbow implements Object3D {
     /**
-     * 指定长度的区间内生成固定点
-     * 固定距离摆动
-     * @param len
-     * @param num
-     * @param pow
-     * @param r
+     * GL 上下文
      */
-    private genRandomPointD;
+    protected gl: GLContex;
+    static readonly NORMAL_COLOR: number[][];
     /**
-     * 生成网格
-     * @param r 半径
-     * @param p 半径浮动
-     * @param o 平滑程度
-     * @param e 精度
+     * 主要路径
      */
-    genBuffer(r: number, p: number, o?: number, e?: number): number[];
+    private pathMain;
+    /**
+     * 多边形顶点数据
+     */
+    private vertexArray;
+    private vertexBuffer;
+    private pointNum;
+    /**
+     * 最大缓冲区大小
+     */
+    maxVertexNum: number;
+    /**
+     * 最小限制角度
+     */
+    minAngle: number;
+    /**
+     * 上次的向量
+     */
+    private lastVector;
+    /**
+     * 使用向量延长路径
+     */
+    extendVector(x: number, y: number): void;
+    /**
+     * 上传数据到 gl
+     * @param arr 数据数组
+     */
+    private updateVertexDate;
+    /**
+     * 生成角度范围的随机摆线
+     */
+    genRangeSwing(): void;
+    /**
+     * 初始化顶点
+     */
+    constructor(gl: GLContex);
+    /**
+     * 坐标
+     */
+    pos: [number, number, number];
     private time;
     color: number[];
     update(t: number): void;
@@ -593,49 +614,142 @@ declare class Start implements Object3D {
 }
 
 /**
- * 三阶贝塞尔曲线
+ * 带有插值手柄的点
  */
-declare class Bezier3 {
-    pointA: number[];
-    pointB: number[];
+declare class Bezier3Point {
+    /**
+     * 点位置
+     */
+    point: number[];
+    /**
+     * 手柄 A
+     */
     handA: number[];
+    /**
+     * 手柄 B
+     */
     handB: number[];
-    len: number;
-    private tempVal;
     /**
-     * 设置单一值
+     * 数据维度
      */
-    setSimpVal(a: number, b: number, c: number, d: number): void;
+    private _len;
+    get len(): number;
     /**
-     * 获取贝塞尔插值
-     * @param t
-     * @returns
+     * 用于曲线生成
      */
-    bezierM(t: number): any[];
-}
-/**
- * 平滑插值工具
- */
-declare class SmoothTool {
+    time: number;
     /**
-     * 三阶贝塞尔插值
-     * @param t 进度
+     * 设置数据维度个数
+     * @param len 维度个数
      */
-    static bezier3(t: number): number[];
+    setLen(len: number): this;
     /**
-     * 生成贝塞尔点集
-     * @param val 一维稀疏数组
-     * @param w 插值尾值
-     * @param smooth 平滑程度
-     * @param f 插值频率
+     * 设置时间
+     * @param time 时间
      */
-    static genSmoothLine(val: number[][], w?: boolean, smooth?: number, f?: number): number[];
+    setTime(time: number): this;
+    /**
+     * 构造函数
+     * @param point 数据点
+     * @param handA 手柄A
+     * @param handB 手柄B
+     */
+    constructor(point: number[], handA?: number[], handB?: number[]);
+    /**
+     * 克隆一个新的点
+     */
+    clone(): Bezier3Point;
+    /**
+     * 生成一对重合手柄
+     */
+    genNoneHand(): this;
+    /**
+     * 按照维度生成平滑手柄
+     * @param s 平滑等级
+     * @param b 分离平滑
+     * @param d 使用维度
+     */
+    genFlatHand(d?: number, s?: number, b?: number): this;
+    /**
+     * 生成垂直于向量的手柄
+     *      |
+     * A <--|--> B
+     *      |
+     * @param x X 分量
+     * @param y Y 分量
+     * @param s 平滑程度
+     * @param b 分离平滑
+     */
+    genSideHand(x: number, y: number, s?: number, b?: number): this;
+    /**
+     * 生成方向向量的手柄
+     *
+     * A <-- ----> --> B
+     *
+     * @param x X 分量
+     * @param y Y 分量
+     * @param s 平滑程度
+     * @param b 分离平滑
+     */
+    genDirHand(x: number, y: number, s?: number, b?: number): this;
+    /**
+     * 获取于另一个点之间的插值
+     * @param p 下一个点
+     * @param t 插值进度
+     */
+    bezier3(p: Bezier3Point, t: number): number[];
     /**
      * 随机生成数字
      * @param min 最小值
      * @param max 最大值
      */
     static random(min: number, max: number): number;
+    /**
+     * 获取两个点之间的 bezier3 插值
+     * @param p1 第一个 bezier 点
+     * @param p2 第二个 bezier 点
+     * @param t 插值进度
+     */
+    static bezier3(p1: Bezier3Point, p2: Bezier3Point, t: number): number[];
+    /**
+     * 贝塞尔数据转顶点数据
+     * 这个函数通常用来测试
+     * @param b 贝塞尔点集
+     * @param d 维度拓展
+     */
+    static bezierPoint2Vertex(b: Bezier3Point[], d?: boolean): number[];
+    /**
+     * 处理圆形顶点数据
+     * @param data 数据
+     * @param c 圆心
+     */
+    static processCircularData(data: number[], ...c: number[]): number[];
+    /**
+     * 根据时间间隔 t 来生成一条平滑的曲线
+     * @param points 采样点
+     * @param f 插值频率
+     * @param w 是否加入末尾的点
+     * @param d 维度拓展
+     */
+    static genSmoothLine(points: Bezier3Point[], f?: number, w?: boolean, d?: boolean): number[];
+    /**
+     * 生成一个等距随机摆动圆环
+     * @param r 半径
+     * @param p 幅度
+     * @param n 数量
+     * @param s 平滑
+     * @param e 精度
+     */
+    static genIsometricCircle(r: number, p: number, n: number, s: number, e?: number): Bezier3Point[];
+    /**
+     * 生成一个等距周期摆动圆环
+     * @param r 半径
+     * @param p 幅度
+     * @param n 数量
+     * @param s 平滑
+     * @param e 精度
+     */
+    static genCycleIsometricCircle(r: number, p: number, n: number, s: number, e?: number): Bezier3Point[];
 }
 
-export { BasicsShader, Bezier3, Camera, Clock, FlutterShader, GLCanvas, GLCanvasOption, GLContex, GLProgram, GLRenderer, LoopFunction, Object3D, Planet, SmoothTool, Start, TestAxis, TestBox };
+export { BasicsShader, Bezier3Point, Camera, Clock, FlutterShader, GLCanvas, GLCanvasOption, GLContex, GLProgram, GLRenderer, LoopFunction, Object3D, Planet, Rainbow, Start, TestAxis, TestBox };

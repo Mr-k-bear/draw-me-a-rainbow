@@ -13,5 +13,6 @@ export * from "./object/TestAxis";
 export * from "./object/TestBox";
 export * from "./object/Planet";
 export * from "./object/Start";
+export * from "./object/Rainbow";
 
 export * from "./utils/SmoothTool";

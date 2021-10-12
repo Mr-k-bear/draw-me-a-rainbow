@@ -1,7 +1,7 @@
 import { Object3D } from "../core/Object3D";
 import { Camera } from "../core/Camera";
 import { GLContex } from "../core/GLType";
-import { SmoothTool } from "../utils/SmoothTool";
+import { Bezier3Point } from "../utils/SmoothTool";
 import { FlutterShader } from "../shader/FlutterShader";
 
 export { Planet }
@@ -27,29 +27,43 @@ class Planet implements Object3D {
         this.gl = gl;
 
         // 随机颜色
-        let colorDep = SmoothTool.random(0.98, 1.02);
+        let colorDep = Bezier3Point.random(0.98, 1.02);
         this.color = [
             colorDep * Planet.NORMAL_COLOR[0],
             colorDep * Planet.NORMAL_COLOR[1],
             colorDep * Planet.NORMAL_COLOR[2]
         ];
 
-        // 生成多边形数据
+        // 生成随机影响因子
         let randSeed = Math.random();
-        let d = this.genBuffer(
-            .20 + randSeed * .4, 
-            .03 + randSeed * .03 + Math.random() * .01, 
-            Math.floor(SmoothTool.random(5, 9)),
-            .8 + randSeed * .3 + Math.random() * .1
-        );
 
-        
+        let randomParam:number[] = [
+            .20 + randSeed * .40, 
+            .03 + randSeed * .01 + Math.random() * .01,
+            5.0 + Math.floor (randSeed * 3),
+            .09 + randSeed * .10 + Math.random() * .05
+        ];
+
+        // 平滑度影响因子
+        randomParam[3] = 
+        (randomParam[0]) ** .9 * .29 +
+        ((7 - randomParam[2]) / 7) * .2;
+
+        // 生成随机圆形点
+        let circle = Bezier3Point.genIsometricCircle.apply(Bezier3Point, randomParam);
+
+        // 生成多边形数据
+        let data = Bezier3Point.genSmoothLine(circle);
+        // let data = Bezier3Point.bezierPoint2Vertex(circle);
+
+        // 处理圆形数据
+        data = Bezier3Point.processCircularData(data);
 
         this.vertexBuffer = this.gl.createBuffer();
-        this.pointNum = d.length / 3;
+        this.pointNum = data.length / 3;
         
         this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.vertexBuffer);
-        this.gl.bufferData(this.gl.ARRAY_BUFFER, new Float32Array(d), this.gl.STATIC_DRAW);
+        this.gl.bufferData(this.gl.ARRAY_BUFFER, new Float32Array(data), this.gl.STATIC_DRAW);
     }
 
     /**
@@ -57,86 +71,12 @@ class Planet implements Object3D {
      */
     public pos:[number,number,number] = [0, 0, 0];
 
-    /**
-     * 指定长度的区间内生成固定点
-     * 固定距离随机摆动
-     * @param len 
-     * @param num 
-     * @param pow 
-     */
-    private genRandomPointM(len:number,num:number,pow:number):number[][] {
-
-        let res = [];
-
-        for (let i = 0; i < num; i++) {
-            res.push([
-                Math.floor(i * len / (num - 1)),
-                (Math.random() - .5) * 2 * pow
-            ]);
-        }
-
-        return res;
-    }
-
-    /**
-     * 生成网格
-     * @param r 半径
-     * @param p 半径浮动
-     * @param f 浮动频率
-     * @param o 平滑程度
-     * @param e 精度
-     */
-    public genBuffer(
-        r:number, 
-        p:number, 
-        f:number, 
-        o:number = 1,
-        e:number = Math.PI / 45
-    ):number[] {
-
-        const dir:number[] = [0, 0];
-        const res:number[] = [0, 0, 0];
-
-        // 点个数
-        let num = Math.PI * 2 / e;
-
-        // 生成抖动数据
-        let d = this.genRandomPointM(num, f, p);
-
-        // 闭合数据
-        d[d.length - 1][1] = d[0][1];
-
-        // 插值
-        let m = SmoothTool.genSmoothLine(d, false, o);
-
-        for (let i = 0; i < m.length; i++) {
-
-            // 当前角度
-            let th = i * 2 * Math.PI / m.length;
-
-            // 参数方程求解
-            dir[0] = Math.cos(th);
-            dir[1] = Math.sin(th);
-
-            res.push(dir[0] * (r + m[i]));
-            res.push(dir[1] * (r + m[i]));
-            res.push(0);
-        }
-
-        // 连接起始点
-        res.push(res[3]);
-        res.push(res[4]);
-        res.push(res[5]);
-
-        return res;
-    }
-
-    private time:number = SmoothTool.random(0, 10);
+    private time:number = Bezier3Point.random(0, 100);
 
     public color:number[];
 
     public update(t:number){
-        
+
         this.time += t ?? 0;
     }
     

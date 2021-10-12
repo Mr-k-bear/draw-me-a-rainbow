@@ -40,7 +40,7 @@ export { FlutterShader }
 
         void main(){
             vec3 sp = vPos + pos;
-            sp.xy += noise(vPos.xy + t / 8.) / 10.;
+            sp.xy += noise(vPos.xy + t / 7.5) / 9.5;
             gl_Position = mvp * vec4(sp, 1.);
         }
         `;
