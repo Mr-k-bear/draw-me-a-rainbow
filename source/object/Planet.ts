@@ -50,7 +50,7 @@ class Planet implements Object3D {
         ((7 - randomParam[2]) / 7) * .2;
 
         // 生成随机圆形点
-        let circle = Bezier3Point.genIsometricCircle.apply(Bezier3Point, randomParam);
+        let circle:Bezier3Point[] = Bezier3Point.genIsometricCircle.apply(Bezier3Point, randomParam);
 
         // 生成多边形数据
         let data = Bezier3Point.genSmoothLine(circle);

@@ -375,7 +375,7 @@ class Bezier3Point {
      */
     public static genCycleIsometricCircle(
         r:number, p:number, n:number, s:number, e:number = Math.PI / 60
-    ) {
+    ):Bezier3Point[] {
 
         // 中共点个数
         let num = Math.PI * 2 / e;
@@ -416,4 +416,89 @@ class Bezier3Point {
         return res;
 
     }
+
+    /**
+     * 生成角度范围的随机摆线
+     * @param r 随机半径
+     * @param n 生成数量
+     * @param l 数据长度
+     * @param s 平滑系数
+     */
+    public static genRangeSwing(
+        r:number, n:number, l:number, s:number
+    ):Bezier3Point[] {
+        let res:Bezier3Point[] = [];
+        for (let i = 0; i < n; i++) {
+
+            // 随机的角度
+            let rd = - Math.random() * Math.PI * 2;
+
+            // 随机长度
+            let rl = Math.random() * r;
+
+            // 生成随机的点
+            let pm = [
+                Math.cos(rd) * rl,
+                Math.sin(rd) * rl
+            ];
+
+            // 向量旋转
+            let h = new Bezier3Point(pm)
+
+            // 设置长度
+            .setLen(2);
+
+            res.push(h);
+        }
+
+        let allLen = 0;
+
+        // 设置第一个值
+        res[0].setTime(0);
+
+        // 计算总长度
+        for (let i = 1; i < res.length; i++) {
+
+            // 获取相邻的两个点
+            let p1 = res[i - 1];
+            let p2 = res[i];
+
+            // 计算长度
+            let l = (
+                (p1.point[0] - p2.point[0])**2 + 
+                (p1.point[1] - p2.point[1])**2
+            )**.5;
+
+            allLen += l;
+
+            // 保存长度
+            p2.setTime(l);
+        }
+
+        res[0].genNoneHand();
+        res[res.length - 1].genNoneHand();
+        res[res.length - 1].setTime(l);
+
+        // 设置手柄 & 归一化时间
+        for (let i = 1; i < (res.length - 1); i++) {
+
+            // 获取三个相邻的点
+            let p1 = res[i - 1];
+            let p2 = res[i];
+            let p3 = res[i + 1];
+
+            // 时间归一化
+            p2.setTime(p2.time * l / allLen);
+
+            // 平滑手柄
+            p2.genDirHand(
+                p1.point[0] - p3.point[0],
+                p1.point[1] - p3.point[1],
+                s
+            );
+        }
+
+        return res;
+    }
+
 }

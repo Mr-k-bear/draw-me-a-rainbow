@@ -26,7 +26,7 @@ class Tester extends Rainbow.GLRenderer {
 
         this.axis.r = 100;
         this.start.pos[0] = -1;
-        this.rainbow.pos[0] = 1;
+        this.planet.pos[0] = 1;
 
         this.canvas.addListener("resize", ()=>{
             this.render();

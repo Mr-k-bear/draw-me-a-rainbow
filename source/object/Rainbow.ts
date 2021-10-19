@@ -44,7 +44,7 @@ class Rainbow implements Object3D {
     /**
      * 最小限制角度
      */
-    public minAngle:number = Math.PI / 6;
+    public minAngle:number = Math.PI / 60;
 
     /**
      * 上次的向量
@@ -136,13 +136,64 @@ class Rainbow implements Object3D {
         this.pointNum += arr.length;
 
     }
-    
+
     /**
-     * 生成角度范围的随机摆线
+     * 自动绘图数据
      */
-    public genRangeSwing() {
-        
-        
+    private autoDrawFocus:number[];
+
+    /**
+     * 是否使用自动绘图
+     */
+    private isAutoDraw:boolean = false;
+
+    /**
+     * 生成随机摆线自动绘制
+     */
+    public autoDraw(){
+
+        // 重置索引
+        this.autoDrawIndex = 0;
+
+        // 生成随机摆线
+        let swingPoint = Bezier3Point.genRangeSwing(
+            .05 + .05 * Math.random(), 
+            6 + Math.floor(Math.random() * 10), 
+            50 + Math.random() * 100, 
+            .1 + Math.random() * .1
+        );
+
+        // 曲线生成
+        this.autoDrawFocus = Bezier3Point.genSmoothLine(swingPoint);
+
+        // 开启自动绘制
+        this.isAutoDraw = true;
+    }
+
+    /**
+     * 自动绘制索引
+     */
+    private autoDrawIndex = 0;
+
+    /**
+     * 获取下一个点
+     */
+    private nextAutoVecter():number[] {
+
+        if (this.autoDrawIndex >= this.autoDrawFocus.length / 3)
+        return null;
+
+        let next = [
+            this.autoDrawFocus[this.autoDrawIndex * 3],
+            this.autoDrawFocus[this.autoDrawIndex * 3 + 1]
+        ];
+
+        this.autoDrawIndex ++;
+
+        if (this.autoDrawIndex >= this.autoDrawFocus.length / 3)
+        this.isAutoDraw = false;
+
+        return next;
     }
 
     /////////////// END 曲线生成算法 END ////////////////////////
@@ -178,6 +229,15 @@ class Rainbow implements Object3D {
     public update(t:number){
         
         this.time += t ?? 0;
+
+        // 自动绘制
+        if (this.isAutoDraw) {
+
+            // 获取下一个点
+            let next = this.nextAutoVecter();
+
+            if (next !== null) this.extendVector(next[0], next[1]);
+        }
     }
     
     public draw(camera:Camera, shader:FlutterShader){

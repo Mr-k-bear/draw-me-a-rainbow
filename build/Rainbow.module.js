@@ -3068,6 +3068,62 @@ class Bezier3Point {
         res.push(res[0].clone().setTime(num));
         return res;
     }
+    /**
+     * 生成角度范围的随机摆线
+     * @param r 随机半径
+     * @param n 生成数量
+     * @param l 数据长度
+     * @param s 平滑系数
+     */
+    static genRangeSwing(r, n, l, s) {
+        let res = [];
+        for (let i = 0; i < n; i++) {
+            // 随机的角度
+            let rd = -Math.random() * Math.PI * 2;
+            // 随机长度
+            let rl = Math.random() * r;
+            // 生成随机的点
+            let pm = [
+                Math.cos(rd) * rl,
+                Math.sin(rd) * rl
+            ];
+            // 向量旋转
+            let h = new Bezier3Point(pm)
+                // 设置长度
+                .setLen(2);
+            res.push(h);
+        }
+        let allLen = 0;
+        // 设置第一个值
+        res[0].setTime(0);
+        // 计算总长度
+        for (let i = 1; i < res.length; i++) {
+            // 获取相邻的两个点
+            let p1 = res[i - 1];
+            let p2 = res[i];
+            // 计算长度
+            let l = ((p1.point[0] - p2.point[0]) ** 2 +
+                (p1.point[1] - p2.point[1]) ** 2) ** .5;
+            allLen += l;
+            // 保存长度
+            p2.setTime(l);
+        }
+        res[0].genNoneHand();
+        res[res.length - 1].genNoneHand();
+        res[res.length - 1].setTime(l);
+        // 设置手柄 & 归一化时间
+        for (let i = 1; i < (res.length - 1); i++) {
+            // 获取三个相邻的点
+            let p1 = res[i - 1];
+            let p2 = res[i];
+            let p3 = res[i + 1];
+            // 时间归一化
+            p2.setTime(p2.time * l / allLen);
+            // 平滑手柄
+            p2.genDirHand(p1.point[0] - p3.point[0], p1.point[1] - p3.point[1], s);
+        }
+        return res;
+    }
 }
 
 class Planet {
@@ -3245,7 +3301,7 @@ class Rainbow {
     /**
      * 最小限制角度
      */
-    minAngle = Math.PI / 6;
+    minAngle = Math.PI / 60;
     /**
      * 上次的向量
      */
@@ -3306,9 +3362,44 @@ class Rainbow {
         this.pointNum += arr.length;
     }
     /**
-     * 生成角度范围的随机摆线
+     * 自动绘图数据
      */
-    genRangeSwing() {
+    autoDrawFocus;
+    /**
+     * 是否使用自动绘图
+     */
+    isAutoDraw = false;
+    /**
+     * 生成随机摆线自动绘制
+     */
+    autoDraw() {
+        // 重置索引
+        this.autoDrawIndex = 0;
+        // 生成随机摆线
+        let swingPoint = Bezier3Point.genRangeSwing(.05 + .05 * Math.random(), 6 + Math.floor(Math.random() * 10), 50 + Math.random() * 100, .1 + Math.random() * .1);
+        // 曲线生成
+        this.autoDrawFocus = Bezier3Point.genSmoothLine(swingPoint);
+        // 开启自动绘制
+        this.isAutoDraw = true;
+    }
+    /**
+     * 自动绘制索引
+     */
+    autoDrawIndex = 0;
+    /**
+     * 获取下一个点
+     */
+    nextAutoVecter() {
+        if (this.autoDrawIndex >= this.autoDrawFocus.length / 3)
+            return null;
+        let next = [
+            this.autoDrawFocus[this.autoDrawIndex * 3],
+            this.autoDrawFocus[this.autoDrawIndex * 3 + 1]
+        ];
+        this.autoDrawIndex++;
+        if (this.autoDrawIndex >= this.autoDrawFocus.length / 3)
+            this.isAutoDraw = false;
+        return next;
     }
     /////////////// END 曲线生成算法 END ////////////////////////
     /**
@@ -3333,6 +3424,13 @@ class Rainbow {
     color;
     update(t) {
         this.time += t ?? 0;
+        // 自动绘制
+        if (this.isAutoDraw) {
+            // 获取下一个点
+            let next = this.nextAutoVecter();
+            if (next !== null)
+                this.extendVector(next[0], next[1]);
+        }
     }
     draw(camera, shader) {
         // 使用程序

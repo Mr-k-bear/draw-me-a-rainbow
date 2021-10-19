@@ -596,9 +596,25 @@ declare class Rainbow implements Object3D {
      */
     private updateVertexDate;
     /**
-     * 生成角度范围的随机摆线
+     * 自动绘图数据
      */
-    genRangeSwing(): void;
+    private autoDrawFocus;
+    /**
+     * 是否使用自动绘图
+     */
+    private isAutoDraw;
+    /**
+     * 生成随机摆线自动绘制
+     */
+    autoDraw(): void;
+    /**
+     * 自动绘制索引
+     */
+    private autoDrawIndex;
+    /**
+     * 获取下一个点
+     */
+    private nextAutoVecter;
     /**
      * 初始化顶点
      */
@@ -750,6 +766,14 @@ declare class Bezier3Point {
      * @param e 精度
      */
     static genCycleIsometricCircle(r: number, p: number, n: number, s: number, e?: number): Bezier3Point[];
+    /**
+     * 生成角度范围的随机摆线
+     * @param r 随机半径
+     * @param n 生成数量
+     * @param l 数据长度
+     * @param s 平滑系数
+     */
+    static genRangeSwing(r: number, n: number, l: number, s: number): Bezier3Point[];
 }
 
 export { BasicsShader, Bezier3Point, Camera, Clock, FlutterShader, GLCanvas, GLCanvasOption, GLContex, GLProgram, GLRenderer, LoopFunction, Object3D, Planet, Rainbow, Start, TestAxis, TestBox };
