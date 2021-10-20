@@ -14,7 +14,9 @@ class Tester extends Rainbow.GLRenderer {
         this.gl.enable(this.gl.DEPTH_TEST);
         this.cleanColor = [147 / 255, 187 / 255, 219 / 255, 1];
 
-        this.flutter = new Rainbow.FlutterShader(this.gl);
+        this.flutterShader = new Rainbow.FlutterShader(this.gl);
+        this.rainbowShader = new Rainbow.RainbowShader(this.gl);
+
         this.planet = new Rainbow.Planet(this.gl);
         this.start = new Rainbow.Start(this.gl);
         this.rainbow = new Rainbow.Rainbow(this.gl);
@@ -27,6 +29,10 @@ class Tester extends Rainbow.GLRenderer {
         this.axis.r = 100;
         this.start.pos[0] = -1;
         this.planet.pos[0] = 1;
+
+        // 开启自动绘制
+        this.rainbow.autoDraw();
+        // this.rainbow.testDrawBezierPoint();
 
         this.canvas.addListener("resize", ()=>{
             this.render();
@@ -58,9 +64,9 @@ class Tester extends Rainbow.GLRenderer {
         this.start.update(t);
         this.rainbow.update(t);
 
-        this.planet.draw(this.camera, this.flutter);
-        this.start.draw(this.camera, this.flutter);
-        this.rainbow.draw(this.camera, this.flutter);
+        this.planet.draw(this.camera, this.flutterShader);
+        this.start.draw(this.camera, this.flutterShader);
+        this.rainbow.draw(this.camera, this.rainbowShader);
         
         this.box.draw(this.camera, this.shader);
         this.axis.draw(this.camera, this.shader);

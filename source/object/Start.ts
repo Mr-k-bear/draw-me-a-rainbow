@@ -43,7 +43,7 @@ class Start implements Object3D {
         let randomParam:number[] = [
             .05 + randSeed * .02, 
             .005 + randSeed * .005 + Math.random() * .001,
-            10, .02
+            10, .02, Math.PI / 30
         ];
 
         // 生成随机圆形点

@@ -458,6 +458,47 @@ declare class FlutterShader extends GLProgram {
     t(t: number): void;
 }
 
+/**
+ * 基础绘制 Shader
+ * @class BasicsShader
+ */
+declare class RainbowShader extends GLProgram {
+    onload(): void;
+    /**
+     * 坐标
+     */
+    pos(r: number[] | vec3): this;
+    /**
+     * 传递半径数据
+     */
+    mvp(mat: mat4, transpose?: boolean): this;
+    /**
+     * 传递半径数据
+     * @param {vec3|Number[]} rgb
+     */
+    color(rgb: number[] | vec3): void;
+    /**
+     * 时间
+     * @param t 时间
+     */
+    t(t: number): void;
+    /**
+     * 时间
+     * @param t 时间
+     */
+    tStart(t: number): void;
+    /**
+     * 时间
+     * @param t 时间
+     */
+    tEnd(t: number): void;
+    /**
+     * 时间
+     * @param r 时间
+     */
+    r(r: number): void;
+}
+
 declare class TestAxis implements Object3D {
     /**
      * 坐标轴数据
@@ -571,11 +612,12 @@ declare class Rainbow implements Object3D {
     /**
      * 多边形顶点数据
      */
-    private vertexArray;
-    private vertexBuffer;
+    private vertexPosBuffer;
+    private vertexDirBuffer;
+    private vertexTimeBuffer;
     private pointNum;
     /**
-     * 最大缓冲区大小
+     * 最大顶点个数
      */
     maxVertexNum: number;
     /**
@@ -586,6 +628,10 @@ declare class Rainbow implements Object3D {
      * 上次的向量
      */
     private lastVector;
+    /**
+     * 彩虹半径
+     */
+    r: number;
     /**
      * 使用向量延长路径
      */
@@ -604,9 +650,18 @@ declare class Rainbow implements Object3D {
      */
     private isAutoDraw;
     /**
+     * 生成点集数据
+     */
+    private genRangeSwing;
+    /**
      * 生成随机摆线自动绘制
      */
     autoDraw(): void;
+    /**
+     * 测试点集的生成情况
+     * 这个函数通常测试使用
+     */
+    testDrawBezierPoint(): void;
     /**
      * 自动绘制索引
      */
@@ -618,15 +673,33 @@ declare class Rainbow implements Object3D {
     /**
      * 初始化顶点
      */
-    constructor(gl: GLContex);
+    constructor(gl: GLContex, maxVertexNum?: number);
     /**
      * 坐标
      */
     pos: [number, number, number];
+    /**
+     * 随机时间相位
+     */
     private time;
+    /**
+     * 起始时间
+     */
+    private timeStart;
+    /**
+     * 结束时间
+     */
+    private timeEnd;
+    /**
+     * 绘制颜色
+     */
     color: number[];
+    /**
+     * 更新
+     * @param t dt
+     */
     update(t: number): void;
-    draw(camera: Camera, shader: FlutterShader): void;
+    draw(camera: Camera, shader: RainbowShader): void;
 }
 
 /**
@@ -776,4 +849,4 @@ declare class Bezier3Point {
     static genRangeSwing(r: number, n: number, l: number, s: number): Bezier3Point[];
 }
 
-export { BasicsShader, Bezier3Point, Camera, Clock, FlutterShader, GLCanvas, GLCanvasOption, GLContex, GLProgram, GLRenderer, LoopFunction, Object3D, Planet, Rainbow, Start, TestAxis, TestBox };
+export { BasicsShader, Bezier3Point, Camera, Clock, FlutterShader, GLCanvas, GLCanvasOption, GLContex, GLProgram, GLRenderer, LoopFunction, Object3D, Planet, Rainbow, RainbowShader, Start, TestAxis, TestBox };

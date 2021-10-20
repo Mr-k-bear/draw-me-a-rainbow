@@ -472,7 +472,7 @@ class Bezier3Point {
             allLen += l;
 
             // 保存长度
-            p2.setTime(l);
+            p2.setTime(allLen);
         }
 
         res[0].genNoneHand();

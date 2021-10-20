@@ -8,6 +8,7 @@ export * from "./core/GLType";
 
 export * from "./shader/BasicShader";
 export * from "./shader/FlutterShader";
+export * from "./shader/RainbowShader";
 
 export * from "./object/TestAxis";
 export * from "./object/TestBox";

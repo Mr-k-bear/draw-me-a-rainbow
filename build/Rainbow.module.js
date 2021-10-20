@@ -2622,6 +2622,130 @@ class FlutterShader extends GLProgram {
     }
 }
 
+/**
+ * 基础绘制 Shader
+ * @class BasicsShader
+ */
+class RainbowShader extends GLProgram {
+    onload() {
+        // 顶点着色
+        const vertex = `
+        attribute vec3 vPos;
+        attribute vec3 vDir;
+        attribute float vTime;
+        attribute float vIdx;
+        
+        uniform float r;
+        uniform mat4 mvp;
+        uniform vec3 pos;
+
+        uniform float t;
+        uniform float tStart;
+        uniform float tEnd;
+
+        varying float idx;
+
+        vec2 random2(vec2 st){
+            st = vec2( dot(st,vec2(127.1,311.7)),
+                      dot(st,vec2(269.5,183.3)) );
+            return -1.0 + 2.0*fract(sin(st)*43758.5453123);
+        }
+        
+        float noise(vec2 st) {
+            vec2 i = floor(st);
+            vec2 f = fract(st);
+        
+            vec2 u = f*f*(3.0-2.0*f);
+        
+            return mix( mix( dot( random2(i + vec2(0.0,0.0) ), f - vec2(0.0,0.0) ),
+                             dot( random2(i + vec2(1.0,0.0) ), f - vec2(1.0,0.0) ), u.x),
+                        mix( dot( random2(i + vec2(0.0,1.0) ), f - vec2(0.0,1.0) ),
+                             dot( random2(i + vec2(1.0,1.0) ), f - vec2(1.0,1.0) ), u.x), u.y);
+        }
+
+        void main(){
+
+            const float processTh = .5;
+            const float processBf = .4;
+
+            float proClamp = 
+            pow(clamp((tEnd - vTime) * processTh, 0., 1.), processBf) * 
+            pow(clamp((vTime - tStart) * processTh, 0., 1.), processBf) ;
+
+            proClamp += clamp(noise(vec2(vTime * .8)), 0., 1.) * proClamp;
+
+            vec3 sp = vPos + pos + vDir * r * proClamp;
+            sp.xy += noise(vPos.xy + t / 7.5) / 9.5;
+            gl_Position = mvp * vec4(sp, 1.);
+            idx = vIdx;
+        }
+        `;
+        // 片段着色
+        const fragment = `
+        precision lowp float;
+        
+        uniform vec3 color;
+
+        void main(){
+            gl_FragColor = vec4(color, 1.);
+        }
+        `;
+        // 保存代码
+        this.setSource(vertex, fragment);
+        // 编译
+        this.compile();
+    }
+    /**
+     * 坐标
+     */
+    pos(r) {
+        this.gl.uniform3fv(this.uniformLocate("pos"), r);
+        return this;
+    }
+    /**
+     * 传递半径数据
+     */
+    mvp(mat, transpose = false) {
+        this.gl.uniformMatrix4fv(this.uniformLocate("mvp"), transpose, mat);
+        return this;
+    }
+    /**
+     * 传递半径数据
+     * @param {vec3|Number[]} rgb
+     */
+    color(rgb) {
+        this.gl.uniform3fv(this.uniformLocate("color"), rgb);
+    }
+    /**
+     * 时间
+     * @param t 时间
+     */
+    t(t) {
+        this.gl.uniform1f(this.uniformLocate("t"), t);
+    }
+    /**
+     * 时间
+     * @param t 时间
+     */
+    tStart(t) {
+        this.gl.uniform1f(this.uniformLocate("tStart"), t);
+    }
+    /**
+     * 时间
+     * @param t 时间
+     */
+    tEnd(t) {
+        this.gl.uniform1f(this.uniformLocate("tEnd"), t);
+    }
+    /**
+     * 时间
+     * @param r 时间
+     */
+    r(r) {
+        this.gl.uniform1f(this.uniformLocate("r"), r);
+    }
+}
+
 class TestAxis {
     /**
      * 坐标轴数据
@@ -3106,7 +3230,7 @@ class Bezier3Point {
                 (p1.point[1] - p2.point[1]) ** 2) ** .5;
             allLen += l;
             // 保存长度
-            p2.setTime(l);
+            p2.setTime(allLen);
         }
         res[0].genNoneHand();
         res[res.length - 1].genNoneHand();
@@ -3228,7 +3352,7 @@ class Start {
         let randomParam = [
             .05 + randSeed * .02,
             .005 + randSeed * .005 + Math.random() * .001,
-            10, .02
+            10, .02, Math.PI / 30
         ];
         // 生成随机圆形点
         let circle = Bezier3Point.genCycleIsometricCircle.apply(Bezier3Point, randomParam);
@@ -3290,22 +3414,27 @@ class Rainbow {
     /**
      * 多边形顶点数据
      */
-    vertexArray = [];
-    vertexBuffer;
+    vertexPosBuffer;
+    vertexDirBuffer;
+    vertexTimeBuffer;
     pointNum = 0;
     /**
-     * 最大缓冲区大小
+     * 最大顶点个数
      */
-    maxVertexNum = 1024 * 3;
+    maxVertexNum = 1024 * 2;
     ///////////////// START 曲线生成算法 START //////////////////////
     /**
      * 最小限制角度
      */
-    minAngle = Math.PI / 60;
+    minAngle = Math.PI / 180;
     /**
      * 上次的向量
      */
     lastVector = [NaN, NaN];
+    /**
+     * 彩虹半径
+     */
+    r = .25;
     /**
      * 使用向量延长路径
      */
@@ -3337,6 +3466,11 @@ class Rainbow {
                 ny = this.lastVector[1] * Math.cos(rth) + this.lastVector[0] * Math.sin(rth);
             }
         }
+        // 计算两个方向的法线
+        let dir = [
+            nx * 0 - ny * 1,
+            ny * 0 + nx * 1
+        ];
         // 生成主路径数据
         let nextX = this.pathMain[this.pathMain.length - 3] + nx * dis;
         let nextY = this.pathMain[this.pathMain.length - 2] + ny * dis;
@@ -3344,8 +3478,15 @@ class Rainbow {
         this.pathMain.push(nextX);
         this.pathMain.push(nextY);
         this.pathMain.push(0);
-        // gl 内存
-        this.updateVertexDate([nextX, nextY, 0]);
+        // 法线拓展
+        this.updateVertexDate([
+            nextX, nextY, 0,
+            dir[0], dir[1], 0, 1
+        ]);
+        this.updateVertexDate([
+            nextX, nextY, 0,
+            -dir[0], -dir[1], 0, 0
+        ]);
         // 保存上次向量
         this.lastVector[0] = nx;
         this.lastVector[1] = ny;
@@ -3357,9 +3498,22 @@ class Rainbow {
     updateVertexDate(arr) {
         if (this.pointNum >= this.maxVertexNum)
             return;
-        this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.vertexBuffer);
-        this.gl.bufferSubData(this.gl.ARRAY_BUFFER, this.pointNum * 4, new Float32Array(arr));
-        this.pointNum += arr.length;
+        // 坐标缓冲
+        this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.vertexPosBuffer);
+        this.gl.bufferSubData(this.gl.ARRAY_BUFFER, this.pointNum * 12, new Float32Array([
+            arr[0], arr[1], arr[2]
+        ]));
+        // 方向缓冲
+        this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.vertexDirBuffer);
+        this.gl.bufferSubData(this.gl.ARRAY_BUFFER, this.pointNum * 12, new Float32Array([
+            arr[3], arr[4], arr[5]
+        ]));
+        // 时间缓冲
+        this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.vertexTimeBuffer);
+        this.gl.bufferSubData(this.gl.ARRAY_BUFFER, this.pointNum * 8, new Float32Array([
+            arr[6], this.time
+        ]));
+        this.pointNum += 1;
     }
     /**
      * 自动绘图数据
@@ -3370,17 +3524,39 @@ class Rainbow {
      */
     isAutoDraw = false;
     /**
+     * 生成点集数据
+     */
+    genRangeSwing() {
+        return Bezier3Point.genRangeSwing(.05 + .08 * Math.random(), 3 + Math.floor(Math.random() * 3), 50 + Math.random() * 100, -.15 - Math.random() * .1);
+    }
+    /**
      * 生成随机摆线自动绘制
      */
     autoDraw() {
         // 重置索引
         this.autoDrawIndex = 0;
         // 生成随机摆线
-        let swingPoint = Bezier3Point.genRangeSwing(.05 + .05 * Math.random(), 6 + Math.floor(Math.random() * 10), 50 + Math.random() * 100, .1 + Math.random() * .1);
+        let swingPoint = this.genRangeSwing();
+        // console.log(swingPoint);
         // 曲线生成
         this.autoDrawFocus = Bezier3Point.genSmoothLine(swingPoint);
         // 开启自动绘制
         this.isAutoDraw = true;
+    }
+    /**
+     * 测试点集的生成情况
+     * 这个函数通常测试使用
+     */
+    testDrawBezierPoint() {
+        // 生成随机摆线
+        let swingPoint = this.genRangeSwing();
+        // 转换为点集数据
+        // let data = Bezier3Point.bezierPoint2Vertex(swingPoint);
+        let data = Bezier3Point.genSmoothLine(swingPoint);
+        // 上传数据
+        this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.vertexPosBuffer);
+        this.gl.bufferSubData(this.gl.ARRAY_BUFFER, this.pointNum * 12, new Float32Array(data));
+        this.pointNum += data.length;
     }
     /**
      * 自动绘制索引
@@ -3405,23 +3581,58 @@ class Rainbow {
     /**
      * 初始化顶点
      */
-    constructor(gl) {
+    constructor(gl, maxVertexNum) {
         this.gl = gl;
+        // 最大顶点数量
+        // 决定了彩虹的长度
+        if (maxVertexNum !== undefined)
+            this.maxVertexNum = maxVertexNum;
         // 随机颜色
         this.color = [.5, .5, .5];
-        // 创建缓冲区
-        this.vertexBuffer = this.gl.createBuffer();
-        this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.vertexBuffer);
-        this.gl.bufferData(this.gl.ARRAY_BUFFER, this.maxVertexNum, this.gl.DYNAMIC_DRAW);
-        // 添加开始的三个点
-        this.updateVertexDate([0, 0, 0]);
+        // 生成随机的半径
+        this.r = .15 + .1 * Math.random();
+        // 随机时间相位
+        this.time =
+            this.timeStart =
+                this.timeEnd =
+                    Bezier3Point.random(0, 10);
+        // 创建位置缓冲区
+        this.vertexPosBuffer = this.gl.createBuffer();
+        this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.vertexPosBuffer);
+        this.gl.bufferData(this.gl.ARRAY_BUFFER, this.maxVertexNum * 3, this.gl.DYNAMIC_DRAW);
+        // 创建方向缓冲区
+        this.vertexDirBuffer = this.gl.createBuffer();
+        this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.vertexDirBuffer);
+        this.gl.bufferData(this.gl.ARRAY_BUFFER, this.maxVertexNum * 3, this.gl.DYNAMIC_DRAW);
+        // 创建时间缓冲区
+        this.vertexTimeBuffer = this.gl.createBuffer();
+        this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.vertexTimeBuffer);
+        this.gl.bufferData(this.gl.ARRAY_BUFFER, this.maxVertexNum * 2, this.gl.DYNAMIC_DRAW);
     }
     /**
      * 坐标
      */
     pos = [0, 0, 0];
-    time = Bezier3Point.random(0, 10);
+    /**
+     * 随机时间相位
+     */
+    time;
+    /**
+     * 起始时间
+     */
+    timeStart;
+    /**
+     * 结束时间
+     */
+    timeEnd;
+    /**
+     * 绘制颜色
+     */
     color;
+    /**
+     * 更新
+     * @param t dt
+     */
     update(t) {
         this.time += t ?? 0;
         // 自动绘制
@@ -3430,26 +3641,40 @@ class Rainbow {
             let next = this.nextAutoVecter();
             if (next !== null)
                 this.extendVector(next[0], next[1]);
+            this.timeEnd = this.time;
         }
     }
     draw(camera, shader) {
         // 使用程序
         shader.use();
         // 绑定缓冲区
-        this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.vertexBuffer);
+        this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.vertexPosBuffer);
         // 指定指针数据
         this.gl.vertexAttribPointer(shader.attribLocate("vPos"), 3, this.gl.FLOAT, false, 0, 0);
+        // 绑定缓冲区
+        this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.vertexDirBuffer);
+        // 指定指针数据
+        this.gl.vertexAttribPointer(shader.attribLocate("vDir"), 3, this.gl.FLOAT, false, 0, 0);
+        // 绑定缓冲区
+        this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.vertexTimeBuffer);
+        this.gl.vertexAttribPointer(shader.attribLocate("vIdx"), 1, this.gl.FLOAT, false, 2 * 4, 0);
+        this.gl.vertexAttribPointer(shader.attribLocate("vTime"), 1, this.gl.FLOAT, false, 2 * 4, 1 * 4);
         // mvp参数传递
         shader.mvp(camera.transformMat);
+        // 半径
+        shader.r(this.r);
         // 时间
         shader.t(this.time);
+        shader.tStart(this.timeStart);
+        shader.tEnd(this.timeEnd);
         // 半径传递
         shader.color(this.color);
         shader.pos(this.pos);
         // 开始绘制
-        this.gl.drawArrays(this.gl.LINE_LOOP, 0, this.pointNum / 3);
+        this.gl.drawArrays(this.gl.TRIANGLE_STRIP, 0, this.pointNum);
+        // this.gl.drawArrays(this.gl.LINE_LOOP, 0, this.pointNum);
     }
 }
 
-export { BasicsShader, Bezier3Point, Camera, Clock, FlutterShader, GLCanvas, GLProgram, GLRenderer, Planet, Rainbow, Start, TestAxis, TestBox };
+export { BasicsShader, Bezier3Point, Camera, Clock, FlutterShader, GLCanvas, GLProgram, GLRenderer, Planet, Rainbow, RainbowShader, Start, TestAxis, TestBox };
 //# sourceMappingURL=Rainbow.module.js.map
