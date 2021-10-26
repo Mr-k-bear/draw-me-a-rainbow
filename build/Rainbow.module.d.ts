@@ -604,7 +604,6 @@ declare class Rainbow implements Object3D {
      * GL 上下文
      */
     protected gl: GLContex;
-    static readonly NORMAL_COLOR: number[][];
     /**
      * 主要路径
      */
@@ -650,6 +649,10 @@ declare class Rainbow implements Object3D {
      */
     private isAutoDraw;
     /**
+     * 彩虹是否正在消失
+     */
+    private isDisappears;
+    /**
      * 生成点集数据
      */
     private genRangeSwing;
@@ -657,6 +660,10 @@ declare class Rainbow implements Object3D {
      * 生成随机摆线自动绘制
      */
     autoDraw(): void;
+    /**
+     * 控制彩虹消失
+     */
+    disappears(): void;
     /**
      * 测试点集的生成情况
      * 这个函数通常测试使用
@@ -671,10 +678,19 @@ declare class Rainbow implements Object3D {
      */
     private nextAutoVecter;
     /**
+     * 当自动绘制完成时的函数钩子
+     */
+    onAutoDrawEnd(): void;
+    /**
+     * 当彩虹完全消失时的函数钩子
+     */
+    onDisappears(): void;
+    /**
      * 初始化顶点
      */
     constructor(gl: GLContex, maxVertexNum?: number);
     /**
+     *
      * 坐标
      */
     pos: [number, number, number];

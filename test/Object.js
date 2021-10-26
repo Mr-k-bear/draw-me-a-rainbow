@@ -26,6 +26,7 @@ class Tester extends Rainbow.GLRenderer {
         this.shader = new Rainbow.BasicsShader(this.gl);
         this.camera = new Rainbow.Camera(this.canvas);
 
+        this.camera.eye[2] = 12;
         this.axis.r = 100;
         this.start.pos[0] = -1;
         this.planet.pos[0] = 1;

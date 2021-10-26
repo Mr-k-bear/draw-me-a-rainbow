@@ -48,8 +48,8 @@ export { RainbowShader }
 
         void main(){
 
-            const float processTh = .5;
-            const float processBf = .4;
+            const float processTh = .9;
+            const float processBf = .35;
 
             float proClamp = 
             pow(clamp((tEnd - vTime) * processTh, 0., 1.), processBf) * 
@@ -68,10 +68,40 @@ export { RainbowShader }
         const fragment = `
         precision lowp float;
         
-        uniform vec3 color;
+        uniform ivec2 color;
+
+        varying float idx;
+
+        const vec3 colorList0 = vec3(253. / 255., 180. / 255., 197. / 255.);
+        const vec3 colorList1 = vec3(255. / 255., 204. / 255., 167. / 255.);
+        const vec3 colorList2 = vec3(255. / 255., 236. / 255., 181. / 255.);
+        const vec3 colorList3 = vec3(141. / 255., 247. / 255., 176. / 255.);
+        const vec3 colorList4 = vec3(135. / 255., 187. / 255., 252. / 255.);
+        const vec3 colorList5 = vec3(208. / 255., 192. / 255., 243. / 255.);
+
+        vec3 colorList(int i){
+            if (i == 0) return colorList0;
+            else if (i == 1) return colorList1;
+            else if (i == 2) return colorList2;
+            else if (i == 3) return colorList3;
+            else if (i == 4) return colorList4;
+            else if (i == 5) return colorList5;
+            else return colorList5;
+        }
 
         void main(){
-            gl_FragColor = vec4(color, 1.);
+
+            float range = float(color[1] - color[0]);
+            float md = float(color[0]) + idx * range;
+            int index = int(floor(md));
+
+            vec3 col = colorList(index);
+
+            if (index != color[0]) {
+                col = mix(col, colorList(index - 1), pow(fract(1. - md), 20.));
+            }
+
+            gl_FragColor = vec4(col, 1.);
         }
         `;
 
@@ -107,7 +137,7 @@ export { RainbowShader }
      * @param {vec3|Number[]} rgb
      */
     public color(rgb:number[]|vec3){
-        this.gl.uniform3fv(
+        this.gl.uniform2iv(
             this.uniformLocate("color"), rgb
         );
     }

@@ -40,7 +40,7 @@ class Planet implements Object3D {
         let randomParam:number[] = [
             .20 + randSeed * .40, 
             .03 + randSeed * .01 + Math.random() * .01,
-            5.0 + Math.floor (randSeed * 3),
+            6.0 + Math.floor (randSeed * 3),
             .09 + randSeed * .10 + Math.random() * .05
         ];
 

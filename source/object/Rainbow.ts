@@ -2,7 +2,6 @@ import { Object3D } from "../core/Object3D";
 import { Camera } from "../core/Camera";
 import { GLContex } from "../core/GLType";
 import { Bezier3Point } from "../utils/SmoothTool";
-import { FlutterShader } from "../shader/FlutterShader";
 import { RainbowShader } from "../Rainbow";
 
 export { Rainbow }
@@ -13,15 +12,6 @@ class Rainbow implements Object3D {
      * GL 上下文
      */
     protected gl:GLContex;
-
-    static readonly NORMAL_COLOR:number[][] = [
-        [253 / 255, 180 / 255, 197 / 255],
-        [255 / 255, 204 / 255, 167 / 255],
-        [255 / 255, 236 / 255, 181 / 255],
-        [141 / 255, 247 / 255, 176 / 255],
-        [135 / 255, 187 / 255, 252 / 255],
-        [208 / 255, 192 / 255, 243 / 255]
-    ];
 
     /**
      * 主要路径
@@ -175,12 +165,17 @@ class Rainbow implements Object3D {
     private isAutoDraw:boolean = false;
 
     /**
+     * 彩虹是否正在消失
+     */
+    private isDisappears:boolean = false;
+
+    /**
      * 生成点集数据
      */
     private genRangeSwing(){
 
         return Bezier3Point.genRangeSwing(
-            .05 + .08 * Math.random(), 
+            .02 + .02 * Math.random(), 
             3 + Math.floor(Math.random() * 3), 
             50 + Math.random() * 100, 
             -.15 - Math.random() * .1
@@ -191,6 +186,9 @@ class Rainbow implements Object3D {
      * 生成随机摆线自动绘制
      */
     public autoDraw(){
+
+        // 绘制起始时间
+        this.timeStart = this.time - .1;
 
         // 重置索引
         this.autoDrawIndex = 0;
@@ -205,6 +203,15 @@ class Rainbow implements Object3D {
 
         // 开启自动绘制
         this.isAutoDraw = true;
+    }
+
+    /**
+     * 控制彩虹消失
+     */
+    public disappears(){
+
+        // 开启自动消失
+        this.isDisappears = true;
     }
 
     /**
@@ -248,10 +255,42 @@ class Rainbow implements Object3D {
 
         this.autoDrawIndex ++;
 
-        if (this.autoDrawIndex >= this.autoDrawFocus.length / 3)
-        this.isAutoDraw = false;
+        if (this.autoDrawIndex >= this.autoDrawFocus.length / 3) {
+
+            // 停止自动绘制
+            this.isAutoDraw = false;
+
+            // FIXED 修复彩虹末端着色异常
+            this.timeEnd = this.time + .1;
+
+            // 触发钩子
+            this.onAutoDrawEnd();
+        }
+        
 
         return next;
+    }
+
+    /**
+     * 当自动绘制完成时的函数钩子
+     */
+    public onAutoDrawEnd() {
+
+        // console.log("Rainbow: On Auto Draw end!");
+
+        // 开启一个随机时刻定时器
+        // 自动让彩虹消失
+        setTimeout(()=>{
+            this.disappears();
+        }, 1000 + 5000 * Math.random());
+    }
+
+    /**
+     * 当彩虹完全消失时的函数钩子
+     */
+     public onDisappears() {
+
+        console.log("Rainbow: On Disappears end!");
     }
 
     /////////////// END 曲线生成算法 END ////////////////////////
@@ -269,16 +308,16 @@ class Rainbow implements Object3D {
         this.maxVertexNum = maxVertexNum;
 
         // 随机颜色
-        this.color = [.5, .5, .5];
+        this.color = [0, 6];
 
         // 生成随机的半径
         this.r = .15 + .1 * Math.random();
 
         // 随机时间相位
-        this.time = 
-        this.timeStart = 
-        this.timeEnd =
-        Bezier3Point.random(0, 10);
+        this.time = Bezier3Point.random(0, 10);
+
+        // FIXED: 彩虹两端着色异常
+        this.timeStart -= .1;
 
         // 创建位置缓冲区
         this.vertexPosBuffer = this.gl.createBuffer();
@@ -297,6 +336,7 @@ class Rainbow implements Object3D {
     }
 
     /**
+     * 
      * 坐标
      */
     public pos:[number,number,number] = [0, 0, 0];
@@ -337,7 +377,24 @@ class Rainbow implements Object3D {
 
             if (next !== null) this.extendVector(next[0], next[1]);
 
-            this.timeEnd = this.time;
+            this.timeEnd = this.time + .1;
+        }
+
+        // 彩虹消失
+        if (this.isDisappears) {
+
+            if (this.timeStart < this.timeEnd + .1) {
+
+                this.timeStart += t;
+
+            } else {
+
+                this.isDisappears = false;
+
+                // 触发消失完成钩子
+                this.onDisappears();
+            }
+
         }
     }
     
